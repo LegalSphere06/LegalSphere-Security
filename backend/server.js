@@ -52,29 +52,29 @@ const dropOldIndexes = async () => {
     // Drop old email index from applications collection
     try {
       await db.collection('applications').dropIndex('email_1');
-      console.log('✅ Dropped old email_1 index from applications collection');
+      console.log('Dropped old email_1 index from applications collection');
     } catch (error) {
       if (error.codeName === 'IndexNotFound') {
-        console.log('ℹ️ email_1 index not found (already dropped or never existed)');
+        console.log('email_1 index not found (already dropped or never existed)');
       } else {
-        console.log('⚠️ Error dropping email_1 index:', error.message);
+        console.log('Error dropping email_1 index:', error.message);
       }
     }
 
     // Drop old license number index if it exists
     try {
       await db.collection('applications').dropIndex('application_license_number_1');
-      console.log('✅ Dropped old application_license_number_1 index');
+      console.log('Dropped old application_license_number_1 index');
     } catch (error) {
       if (error.codeName === 'IndexNotFound') {
-        console.log('ℹ️ application_license_number_1 index not found');
+        console.log('application_license_number_1 index not found');
       } else {
-        console.log('⚠️ Error dropping license index:', error.message);
+        console.log('Error dropping license index:', error.message);
       }
     }
 
   } catch (error) {
-    console.log('❌ Error in dropOldIndexes function:', error.message);
+    console.log('Error in dropOldIndexes function:', error.message);
   }
 };
 
@@ -82,7 +82,7 @@ const dropOldIndexes = async () => {
 initializeApp();
 
 // ========================================
-// 🔐 SECURITY MIDDLEWARES
+// SECURITY MIDDLEWARES
 // ========================================
 
 // Content Security Policy (CSP) - Prevents XSS and injection attacks
@@ -116,7 +116,7 @@ app.use(express.json({ limit: "10mb" }));
 app.use(morgan("combined"));
 
 // ========================================
-// 🚨 RATE LIMITING (API Abuse Prevention)
+// RATE LIMITING (API Abuse Prevention)
 // ========================================
 
 // General API Rate Limiting

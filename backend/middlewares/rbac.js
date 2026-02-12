@@ -1,5 +1,5 @@
 // ========================================
-// 🔐 ROLE-BASED ACCESS CONTROL (RBAC) MIDDLEWARE
+// ROLE-BASED ACCESS CONTROL (RBAC) MIDDLEWARE
 // ========================================
 
 /**

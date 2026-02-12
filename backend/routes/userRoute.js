@@ -18,7 +18,7 @@ import { getUsersForGIS } from "../controllers/userController.js";
 const userRouter = express.Router();
 
 // ========================================
-// 🛡️ VALIDATION MIDDLEWARE
+// VALIDATION MIDDLEWARE
 // ========================================
 
 // Validation middleware handler
@@ -113,7 +113,7 @@ const paymentValidation = [
 ];
 
 // ========================================
-// 🔒 PROTECTED ROUTES WITH VALIDATION
+// PROTECTED ROUTES WITH VALIDATION
 // ========================================
 
 userRouter.post("/register", registerValidation, validate, registerUser);
