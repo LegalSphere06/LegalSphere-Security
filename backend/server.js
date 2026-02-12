@@ -4,6 +4,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import morgan from "morgan";
 import xss from "xss-clean";
+import mongoSanitize from 'express-mongo-sanitize';
 import "dotenv/config";
 import connectDB from "./config/mongodb.js";
 import connectCloudinary from "./config/cloudinary.js";
@@ -130,6 +131,14 @@ app.use(express.json({ limit: "10mb" }));
 
 // Sanitize user imput
 app.use(xss());
+
+// Sanitize MongoDB inputs (NoSQL Injection Prevention)
+app.use(mongoSanitize({
+  replaceWith: '_',
+  onSanitize: ({ req, key }) => {
+    console.warn(`Sanitized malicious input: ${key}`);
+  },
+}));
 
 // Logging (API Monitoring)
 app.use(morgan("combined"));

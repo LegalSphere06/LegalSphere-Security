@@ -1,5 +1,33 @@
 import bcrypt from "bcrypt";
 import { v2 as cloudinary } from "cloudinary";
+import validator from "validator";
+
+/**
+ * Sanitize string input to prevent NoSQL injection
+ * @param {any} input - Input to sanitize
+ * @returns {string|null} Sanitized string or null
+ */
+const sanitizeString = (input) => {
+    // Only allow string primitives
+    if (typeof input !== 'string') {
+        return null;
+    }
+    // Trim whitespace
+    return input.trim();
+};
+
+/**
+ * Sanitize email input
+ * @param {any} email - Email to sanitize
+ * @returns {string|null} Sanitized email or null
+ */
+const sanitizeEmail = (email) => {
+    const sanitized = sanitizeString(email);
+    if (!sanitized || !validator.isEmail(sanitized)) {
+        return null;
+    }
+    return validator.normalizeEmail(sanitized);
+};
 
 /**
  * Upload image to Cloudinary from buffer
@@ -126,7 +154,7 @@ export const buildLawyerData = (data, imageUrl, hashedPassword) => {
             ? languages_spoken
             : [languages_spoken].filter(Boolean),
         about: about || 'No additional information provided',
-        available: available || true,
+        available: available === undefined ? true : available,
         legal_professionals: legal_professionals || [],
         fees: fees ? Number(fees) : 0,
         total_reviews: total_reviews || 0,
@@ -144,6 +172,7 @@ export const buildLawyerData = (data, imageUrl, hashedPassword) => {
 
 /**
  * Check if lawyer exists by email or license number
+ * SECURE VERSION - Prevents NoSQL injection
  * @param {Model} lawyerModel - Mongoose lawyer model
  * @param {string} email - Email to check
  * @param {string} licenseNumber - License number to check
@@ -151,15 +180,30 @@ export const buildLawyerData = (data, imageUrl, hashedPassword) => {
  * @returns {Promise<Object|null>} Existing lawyer or null
  */
 export const checkLawyerExists = async (lawyerModel, email, licenseNumber, excludeId = null) => {
+    // CRITICAL: Sanitize inputs to prevent NoSQL injection
+    const sanitizedEmail = sanitizeEmail(email);
+    const sanitizedLicense = sanitizeString(licenseNumber);
+
+    // If inputs are invalid, return null (no match)
+    if (!sanitizedEmail || !sanitizedLicense) {
+        console.warn('Invalid input detected in checkLawyerExists');
+        return null;
+    }
+
+    // Build query with sanitized strings only
     const query = {
         $or: [
-            { email },
-            { license_number: licenseNumber }
+            { email: sanitizedEmail },
+            { license_number: sanitizedLicense }
         ]
     };
 
+    // Sanitize excludeId if provided
     if (excludeId) {
-        query._id = { $ne: excludeId };
+        const sanitizedId = sanitizeString(excludeId);
+        if (sanitizedId) {
+            query._id = { $ne: sanitizedId };
+        }
     }
 
     return await lawyerModel.findOne(query);
