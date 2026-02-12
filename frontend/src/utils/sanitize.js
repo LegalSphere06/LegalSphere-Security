@@ -7,8 +7,9 @@
  */
 export const sanitizeInput = (input) => {
   if (typeof input !== "string") return input;
-  // Remove all HTML tags
-  const stripped = input.replaceAll(/<[^>]*>/g, "");
+  // Remove all HTML tags - using bounded quantifier to prevent ReDoS
+  // Limits tag content to 1000 chars to prevent catastrophic backtracking
+  const stripped = input.replaceAll(/<[^>]{0,1000}>/g, "");
   // Remove potentially dangerous characters/patterns
   const cleaned = stripped
     .replaceAll(/javascript:/gi, "")
