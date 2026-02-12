@@ -86,28 +86,25 @@ initializeApp();
 // SECURITY MIDDLEWARES
 // ========================================
 
-// Content Security Policy (CSP) - Prevents XSS and injection attacks
+// Security Headers & Content Security Policy (CSP)
 app.use(
-  helmet.contentSecurityPolicy({
-    directives: {
-      defaultSrc: ["'self'"],           // Only allow resources from same origin
-      scriptSrc: ["'self'"],             // Only allow scripts from same origin (blocks inline scripts)
-      connectSrc: ["'self'"],            // Only allow fetch/XHR from same origin
-      imgSrc: ["'self'", "data:"],       // Allow images from self and data URIs
-      objectSrc: ["'none'"],             // Block all <object>, <embed>, and <applet> elements
-      baseUri: ["'self'"],               // Restrict <base> tag to same origin
-      formAction: ["'self'"],            // Restrict form submissions to same origin
-      frameAncestors: ["'self'"],        // Only allow iframe embedding from same origin (prevents Clickjacking)
-      upgradeInsecureRequests: []        // Automatically upgrade HTTP to HTTPS (prevents mixed content issues)
-    }
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        connectSrc: ["'self'"],
+        imgSrc: ["'self'", "data:"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'self'"],
+        upgradeInsecureRequests: []
+      }
+    },
+    crossOriginResourcePolicy: { policy: "cross-origin" } // Allow cross-origin access to static files (uploads)
   })
 );
-
-// Other Security Headers (XSS Protection, Frame Options, etc.)
-app.use(helmet({
-  contentSecurityPolicy: false, // We're handling CSP separately above
-  crossOriginResourcePolicy: { policy: "cross-origin" } // Allow cross-origin access to static files (uploads)
-}));
 
 // Enable CORS securely
 app.use(cors({
