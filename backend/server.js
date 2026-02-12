@@ -97,6 +97,7 @@ app.use(
       objectSrc: ["'none'"],             // Block all <object>, <embed>, and <applet> elements
       baseUri: ["'self'"],               // Restrict <base> tag to same origin
       formAction: ["'self'"],            // Restrict form submissions to same origin
+      frameAncestors: ["'self'"],        // Only allow iframe embedding from same origin (prevents Clickjacking)
       upgradeInsecureRequests: []        // Automatically upgrade HTTP to HTTPS (prevents mixed content issues)
     }
   })
