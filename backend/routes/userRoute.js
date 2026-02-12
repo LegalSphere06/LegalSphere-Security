@@ -9,11 +9,12 @@ import {
   listAppointment,
   cancelAppointment,
   paymentRazorpay,
-  verifyRazorpay
+  verifyRazorpay,
+  getUsersForGIS
 } from "../controllers/userController.js";
 import authUser from "../middlewares/authUser.js";
+import authAdmin from "../middlewares/authAdmin.js";
 import upload from "../middlewares/multer.js";
-import { getUsersForGIS } from "../controllers/userController.js";
 
 const userRouter = express.Router();
 
@@ -135,6 +136,6 @@ userRouter.post('/cancel-appointment', authUser, cancelAppointmentValidation, va
 userRouter.post('/payment-razorpay', authUser, paymentValidation, validate, paymentRazorpay);
 userRouter.post('/verifyRazorpay', authUser, verifyRazorpay);
 
-userRouter.get('/gis-users', getUsersForGIS);
+userRouter.get('/gis-users', authAdmin, getUsersForGIS);
 
 export default userRouter;

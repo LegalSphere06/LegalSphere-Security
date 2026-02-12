@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import morgan from "morgan";
+import xss from "xss-clean";
 import "dotenv/config";
 import connectDB from "./config/mongodb.js";
 import connectCloudinary from "./config/cloudinary.js";
@@ -11,9 +12,9 @@ import lawyerRouter from "./routes/lawyerRoute.js";
 import userRouter from "./routes/userRoute.js";
 import applicationRouter from "./routes/applicationRoute.js";
 import mongoose from "mongoose";
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // Get __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -111,6 +112,9 @@ app.use(cors({
 
 // Parse JSON with size limit
 app.use(express.json({ limit: "10mb" }));
+
+// Sanitize user imput
+app.use(xss());
 
 // Logging (API Monitoring)
 app.use(morgan("combined"));

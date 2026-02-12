@@ -39,7 +39,6 @@ const addLawyer = async (req, res) => {
       longitude,
       court1,
       court2,
-      date,
       slots_booked,
       method,
       online_link,
@@ -201,7 +200,8 @@ const loginAdmin = async (req, res) => {
       email === process.env.ADMIN_EMAIL &&
       password === process.env.ADMIN_PASSWORD
     ) {
-      const token = jwt.sign(email + password, process.env.JWT_SECRET);
+      // Securely sign a payload without sensitive data (password)
+      const token = jwt.sign({ role: 'admin', email: email }, process.env.JWT_SECRET, { expiresIn: '24h' });
       res.json({ success: true, token });
     } else {
       res.json({ success: false, message: "Invalid credentials" });
@@ -266,15 +266,16 @@ const appointmentCancel = async (req, res) => {
 // API to get dashboard data for admin panel
 const adminDashboard = async (req, res) => {
   try {
-    const lawyers = await lawyerModel.find({})
-    const users = await userModel.find({})
-    const appointments = await appointmentModel.find({})
+    const lawyersCount = await lawyerModel.countDocuments({});
+    const usersCount = await userModel.countDocuments({});
+    const appointmentsCount = await appointmentModel.countDocuments({});
+    const latestAppointments = await appointmentModel.find({}).sort({ date: -1 }).limit(5);
 
     const dashData = {
-      lawyers: lawyers.length,
-      appointments: appointments.length,
-      clients: users.length,
-      latestAppointments: appointments.reverse().slice(0, 5)
+      lawyers: lawyersCount,
+      appointments: appointmentsCount,
+      clients: usersCount,
+      latestAppointments: latestAppointments
     }
 
     res.json({ success: true, dashData })
@@ -528,21 +529,21 @@ const approveApplication = async (req, res) => {
   try {
     console.log("Approve application called with body:", req.body);
     const { applicationId } = req.body;
-    
+
     if (!applicationId) {
-      return res.json({ 
-        success: false, 
-        message: "Application ID is required" 
+      return res.json({
+        success: false,
+        message: "Application ID is required"
       });
     }
-    
+
     const application = await applicationModel.findById(applicationId);
     console.log("Found application:", application ? "Yes" : "No");
-    
+
     if (!application) {
-      return res.json({ 
-        success: false, 
-        message: "Application not found" 
+      return res.json({
+        success: false,
+        message: "Application not found"
       });
     }
 
@@ -576,9 +577,9 @@ const approveApplication = async (req, res) => {
 
     // Store the plain password before hashing for email
     const plainPassword = application.application_password;
-    
+
     console.log("Using password from application for:", application.application_email);
-    
+
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(application.application_password, salt);
 
@@ -618,15 +619,15 @@ const approveApplication = async (req, res) => {
 
     const newLawyer = new lawyerModel(lawyerData);
     await newLawyer.save();
-    
+
     console.log("Lawyer created successfully with ID:", newLawyer._id);
 
-// Approve
-const emailSent = await sendApprovalEmail(
-    application.application_email,
-    application.application_name,
-    plainPassword
-);
+    // Approve
+    const emailSent = await sendApprovalEmail(
+      application.application_email,
+      application.application_name,
+      plainPassword
+    );
 
     if (!emailSent) {
       console.log("Warning: Welcome email could not be sent, but lawyer account was created");
@@ -635,9 +636,9 @@ const emailSent = await sendApprovalEmail(
     await applicationModel.findByIdAndDelete(applicationId);
     console.log("Application deleted");
 
-    res.json({ 
-      success: true, 
-      message: emailSent 
+    res.json({
+      success: true,
+      message: emailSent
         ? "Application approved successfully. Lawyer account created and welcome email sent."
         : "Application approved successfully. Lawyer account created (email sending failed).",
       lawyerId: newLawyer._id,
@@ -646,8 +647,8 @@ const emailSent = await sendApprovalEmail(
 
   } catch (error) {
     console.error("Error approving application:", error);
-    res.json({ 
-      success: false, 
+    res.json({
+      success: false,
       message: error.message || "Failed to approve application"
     });
   }
@@ -658,21 +659,21 @@ const rejectApplication = async (req, res) => {
   try {
     console.log("Reject application called with body:", req.body);
     const { applicationId } = req.body;
-    
+
     if (!applicationId) {
-      return res.json({ 
-        success: false, 
-        message: "Application ID is required" 
+      return res.json({
+        success: false,
+        message: "Application ID is required"
       });
     }
-    
+
     // Find the application first to get email for notification
     const application = await applicationModel.findById(applicationId);
-    
+
     if (!application) {
-      return res.json({ 
-        success: false, 
-        message: "Application not found" 
+      return res.json({
+        success: false,
+        message: "Application not found"
       });
     }
 
@@ -692,15 +693,15 @@ const rejectApplication = async (req, res) => {
     console.log("Email:", application.application_email);
     console.log("=================================");
 
-    res.json({ 
-      success: true, 
-      message: "Application rejected and removed from the system." 
+    res.json({
+      success: true,
+      message: "Application rejected and removed from the system."
     });
 
   } catch (error) {
     console.error("Error rejecting application:", error);
-    res.json({ 
-      success: false, 
+    res.json({
+      success: false,
       message: error.message || "Failed to reject application"
     });
   }
