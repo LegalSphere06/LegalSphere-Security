@@ -92,15 +92,20 @@ app.use(
     directives: {
       defaultSrc: ["'self'"],           // Only allow resources from same origin
       scriptSrc: ["'self'"],             // Only allow scripts from same origin (blocks inline scripts)
+      connectSrc: ["'self'"],            // Only allow fetch/XHR from same origin
+      imgSrc: ["'self'", "data:"],       // Allow images from self and data URIs
       objectSrc: ["'none'"],             // Block all <object>, <embed>, and <applet> elements
-      upgradeInsecureRequests: []        // Automatically upgrade HTTP to HTTPS
+      baseUri: ["'self'"],               // Restrict <base> tag to same origin
+      formAction: ["'self'"],            // Restrict form submissions to same origin
+      upgradeInsecureRequests: []        // Automatically upgrade HTTP to HTTPS (prevents mixed content issues)
     }
   })
 );
 
 // Other Security Headers (XSS Protection, Frame Options, etc.)
 app.use(helmet({
-  contentSecurityPolicy: false  // We're handling CSP separately above
+  contentSecurityPolicy: false, // We're handling CSP separately above
+  crossOriginResourcePolicy: { policy: "cross-origin" } // Allow cross-origin access to static files (uploads)
 }));
 
 // Enable CORS securely
