@@ -70,7 +70,7 @@ const updateProfileValidation = [
     .isLength({ min: 2, max: 50 }).withMessage("Name must be between 2 and 50 characters"),
   body("phone")
     .trim()
-    .matches(/^[0-9]{10,15}$/).withMessage("Enter a valid phone number"),
+    .matches(/^\d{10,15}$/).withMessage("Enter a valid phone number"),
   body("dob")
     .optional()
     .isISO8601().withMessage("Enter a valid date"),
