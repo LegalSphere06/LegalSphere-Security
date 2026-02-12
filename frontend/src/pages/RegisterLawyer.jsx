@@ -49,48 +49,48 @@ const RegisterLawyer = () => {
 
     // Sri Lankan specific data
     const specialities = [
-            'Criminal Law',
-            'Civil Law',
-            'Family Law',
-            'Corporate Law',
-            'Immigration Law',
-            'Property Law',
-            'General Practice',
-            'Constitutional Law',
-            'Labour Law',
-            'Intellectual Property Law',
-            'Tax Law',
-            'Administrative Law',
-            'Environmental Law',
-            'Human Rights Law',
-            'International Law',
-            'Commercial Law',
-            'Insurance Law',
-            'Banking and Finance Law',
-            'Maritime Law',
-            'Cyber Law',
-            'Medical Law',
-            'Consumer Law',
-            'Education Law',
-            'Transport Law',
-            'Entertainment Law'
+        'Criminal Law',
+        'Civil Law',
+        'Family Law',
+        'Corporate Law',
+        'Immigration Law',
+        'Property Law',
+        'General Practice',
+        'Constitutional Law',
+        'Labour Law',
+        'Intellectual Property Law',
+        'Tax Law',
+        'Administrative Law',
+        'Environmental Law',
+        'Human Rights Law',
+        'International Law',
+        'Commercial Law',
+        'Insurance Law',
+        'Banking and Finance Law',
+        'Maritime Law',
+        'Cyber Law',
+        'Medical Law',
+        'Consumer Law',
+        'Education Law',
+        'Transport Law',
+        'Entertainment Law'
     ];
 
     const degrees = [
-            'Attorney-at-Law (Sri Lanka Law College)',
-            'LL.B (University of Colombo)',
-            'LL.B (University of Peradeniya)',
-            'LL.B (University of Jaffna)',
-            'LL.B (University of Ruhuna)',
-            'LL.B (Eastern University)',
-            'LL.B (South Eastern University)',
-            'LL.B (Open University of Sri Lanka)',
-            'LL.B (General Sir John Kotelawala Defence University)',
-            'LL.B (University of Sri Jayewardenepura)',
-            'LL.M (Master of Laws)',
-            'PhD in Law',
-            'Diploma in Law',
-            'Other'
+        'Attorney-at-Law (Sri Lanka Law College)',
+        'LL.B (University of Colombo)',
+        'LL.B (University of Peradeniya)',
+        'LL.B (University of Jaffna)',
+        'LL.B (University of Ruhuna)',
+        'LL.B (Eastern University)',
+        'LL.B (South Eastern University)',
+        'LL.B (Open University of Sri Lanka)',
+        'LL.B (General Sir John Kotelawala Defence University)',
+        'LL.B (University of Sri Jayewardenepura)',
+        'LL.M (Master of Laws)',
+        'PhD in Law',
+        'Diploma in Law',
+        'Other'
     ];
 
     const districts = [
@@ -118,8 +118,8 @@ const RegisterLawyer = () => {
 
     const validateCurrentStep = () => {
         const newErrors = {};
-        
-        switch(currentStep) {
+
+        switch (currentStep) {
             case 0: // Personal Info
                 if (formData.application_name && formData.application_name.length < 3) {
                     newErrors.name = 'Name must be at least 3 characters';
@@ -131,7 +131,7 @@ const RegisterLawyer = () => {
                     }
                 }
                 break;
-                
+
             case 1: // Contact Details
                 if (formData.application_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.application_email)) {
                     newErrors.email = 'Invalid email format';
@@ -142,16 +142,16 @@ const RegisterLawyer = () => {
                 if (passwordConfirm && formData.application_password !== passwordConfirm) {
                     newErrors.passwordConfirm = 'Passwords do not match';
                 }
-                if (formData.application_phone && !/^(?:\+94|0)?7[0-9]{8}$/.test(formData.application_phone.replace(/\s/g, ''))) {
+                if (formData.application_phone && !/^(?:\+94|0)?7\d{8}$/.test(formData.application_phone.replace(/\s/g, ''))) {
                     newErrors.phone = 'Invalid Sri Lankan mobile number';
                 }
-                if (formData.application_office_phone && formData.application_office_phone.length > 0 && 
-                    !/^(?:\+94|0)?(?:11|21|31|41|51|61|91|81|71|23|24|25|26|27|32|33|34|35|36|37|38|45|47|52|54|55|57|63|65|66|67)[0-9]{7}$/.test(formData.application_office_phone.replace(/\s/g, ''))) {
+                if (formData.application_office_phone && formData.application_office_phone.length > 0 &&
+                    !/^(?:\+94|0)?(?:11|21|31|41|51|61|91|81|71|23|24|25|26|27|32|33|34|35|36|37|38|45|47|52|54|55|57|63|65|66|67)\d{7}$/.test(formData.application_office_phone.replace(/\s/g, ''))) {
                     newErrors.officePhone = 'Invalid Sri Lankan landline number';
                 }
                 break;
         }
-        
+
         setErrors(newErrors);
     };
 
@@ -591,7 +591,7 @@ const RegisterLawyer = () => {
                     />
                     {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
                 </div>
-                
+
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Password *</label>
                     <input
@@ -604,7 +604,7 @@ const RegisterLawyer = () => {
                     />
                     {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
                 </div>
-                
+
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Password *</label>
                     <input
@@ -617,7 +617,7 @@ const RegisterLawyer = () => {
                     />
                     {errors.passwordConfirm && <p className="text-red-500 text-xs mt-1">{errors.passwordConfirm}</p>}
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Number *</label>
@@ -634,7 +634,7 @@ const RegisterLawyer = () => {
                         />
                         {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
                     </div>
-                    
+
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Office Phone</label>
                         <input
@@ -651,7 +651,7 @@ const RegisterLawyer = () => {
                     </div>
                 </div>
             </div>
-            
+
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">Languages Spoken *</label>
                 <div className="flex gap-6">
@@ -697,7 +697,7 @@ const RegisterLawyer = () => {
                         <p className="text-gray-500 text-xs mt-1">Please select at least one degree</p>
                     )}
                 </div>
-                
+
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Legal Professionals Information *</label>
                     <textarea
@@ -815,7 +815,7 @@ const RegisterLawyer = () => {
                         required
                     />
                 </div>
-                
+
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Latitude</label>
                     <input
@@ -838,7 +838,7 @@ const RegisterLawyer = () => {
                         placeholder="Enter longitude"
                     />
                 </div>
-                
+
                 <div className="md:col-span-2">
                     <button
                         type="button"
@@ -986,7 +986,7 @@ const RegisterLawyer = () => {
             {/* OTP Verification Section */}
             <div className="mt-6 border border-blue-200 rounded-lg p-6 bg-blue-50">
                 <h4 className="font-medium text-blue-800 mb-4">Email Verification Required</h4>
-                
+
                 {!otpSent ? (
                     <div>
                         <p className="text-sm text-blue-700 mb-4">
@@ -995,7 +995,7 @@ const RegisterLawyer = () => {
                         <button
                             onClick={handleSendOTP}
                             disabled={isSendingOTP}
-                           className="w-full px-6 py-3 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full px-6 py-3 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {isSendingOTP ? 'Sending OTP...' : 'Send OTP to Email'}
                         </button>
@@ -1077,11 +1077,10 @@ const RegisterLawyer = () => {
                             <button
                                 onClick={prevStep}
                                 disabled={currentStep === 0 || isSubmitting}
-                                className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                                    currentStep === 0 || isSubmitting
+                                className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${currentStep === 0 || isSubmitting
                                         ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
                                         : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300 hover:border-gray-400'
-                                }`}
+                                    }`}
                             >
                                 <ChevronLeft size={20} className="mr-2" />
                                 Previous
@@ -1100,11 +1099,10 @@ const RegisterLawyer = () => {
                                 <button
                                     onClick={handleSubmit}
                                     disabled={isSubmitting || !otpVerified}
-                                    className={`flex items-center px-6 py-2 rounded-md text-sm font-bold transition-all duration-200 ${
-                                        !otpVerified 
-                                            ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                                    className={`flex items-center px-6 py-2 rounded-md text-sm font-bold transition-all duration-200 ${!otpVerified
+                                            ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
                                             : 'bg-green-600 text-white hover:bg-green-700'
-                                    } disabled:opacity-50`}
+                                        } disabled:opacity-50`}
                                 >
                                     {isSubmitting ? 'Submitting...' : !otpVerified ? 'Verify Email First' : 'Submit Application'}
                                 </button>
