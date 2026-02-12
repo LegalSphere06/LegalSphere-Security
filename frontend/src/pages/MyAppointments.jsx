@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from "react"
 import { AppContext } from "../context/AppContext"
-import axios from "axios"
+import api from "../utils/api"
 import { toast } from "react-toastify"
 import { useNavigate } from 'react-router-dom'
 import { Calendar, Clock, MapPin, CreditCard, XCircle, CheckCircle, ExternalLink, Grid3x3, List, Navigation } from 'lucide-react'
@@ -32,7 +32,7 @@ const MyAppointments = () => {
 
   const getUserAppointments = async () => {
     try {
-      const { data } = await axios.get(backendUrl + '/api/user/appointments', { headers: { token } })
+      const { data } = await api.get('/api/user/appointments')
       if (data.success) {
         setAppointments(data.appointments.reverse())
       }
@@ -44,7 +44,7 @@ const MyAppointments = () => {
 
   const cancelAppointment = async (appointmentId) => {
     try {
-      const { data } = await axios.post(backendUrl + '/api/user/cancel-appointment', { appointmentId }, { headers: { token } })
+      const { data } = await api.post('/api/user/cancel-appointment', { appointmentId })
       if (data.success) {
         toast.success(data.message)
         getUserAppointments()
@@ -69,7 +69,7 @@ const MyAppointments = () => {
       receipt: order.receipt,
       handler: async (response) => {
         try {
-          const { data } = await axios.post(backendUrl + '/api/user/verifyRazorpay', response, { headers: { token } })
+          const { data } = await api.post('/api/user/verifyRazorpay', response)
           if (data.success) {
             getUserAppointments()
             navigate('/my-appointments')
@@ -86,7 +86,7 @@ const MyAppointments = () => {
 
   const appointmentRazorpay = async (appointmentId) => {
     try {
-      const { data } = await axios.post(backendUrl + '/api/user/payment-razorpay', { appointmentId }, { headers: { token } })
+      const { data } = await api.post('/api/user/payment-razorpay', { appointmentId })
       if (data.success) {
         initPay(data.order)
       }
@@ -146,9 +146,9 @@ const MyAppointments = () => {
           <div className="flex flex-col sm:flex-row gap-4">
             {/* Lawyer Image */}
             <div className="flex-shrink-0">
-              <img 
-                className="w-24 h-24 sm:w-32 sm:h-32 rounded-lg object-cover bg-indigo-50" 
-                src={getLawyerImage(item.lawyerData)} 
+              <img
+                className="w-24 h-24 sm:w-32 sm:h-32 rounded-lg object-cover bg-indigo-50"
+                src={getLawyerImage(item.lawyerData)}
                 alt={item.lawyerData.name}
               />
             </div>
@@ -206,9 +206,9 @@ const MyAppointments = () => {
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-3">
                   <p className="text-sm font-medium text-green-800 mb-2">Your online consultation is ready!</p>
                   <p className="text-xs text-green-700 mb-3">Click the link below to join the meeting with your lawyer</p>
-                  <a 
-                    href={item.lawyerData.online_link} 
-                    target="_blank" 
+                  <a
+                    href={item.lawyerData.online_link}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
                   >
@@ -227,9 +227,9 @@ const MyAppointments = () => {
                     {item.lawyerData.address?.street && `${item.lawyerData.address.street}, `}
                     {item.lawyerData.address?.district}
                   </p>
-                  <a 
+                  <a
                     href={getDirectionsUrl(item.lawyerData.latitude, item.lawyerData.longitude)}
-                    target="_blank" 
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
                   >
@@ -286,9 +286,9 @@ const MyAppointments = () => {
             <tr key={index} className="hover:bg-gray-50">
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="flex items-center">
-                  <img 
-                    className="h-10 w-10 rounded-full bg-indigo-50 object-cover" 
-                    src={getLawyerImage(item.lawyerData)} 
+                  <img
+                    className="h-10 w-10 rounded-full bg-indigo-50 object-cover"
+                    src={getLawyerImage(item.lawyerData)}
                     alt=""
                   />
                   <div className="ml-3">
@@ -320,9 +320,9 @@ const MyAppointments = () => {
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm">
                 {item.isCompleted && item.consultationType === 'online' && item.lawyerData.online_link ? (
-                  <a 
-                    href={item.lawyerData.online_link} 
-                    target="_blank" 
+                  <a
+                    href={item.lawyerData.online_link}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-green-600 hover:text-green-800 font-medium"
                   >
@@ -330,9 +330,9 @@ const MyAppointments = () => {
                     Join
                   </a>
                 ) : item.isCompleted && item.consultationType === 'onsite' && item.lawyerData.latitude && item.lawyerData.longitude ? (
-                  <a 
+                  <a
                     href={getDirectionsUrl(item.lawyerData.latitude, item.lawyerData.longitude)}
-                    target="_blank" 
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-green-600 hover:text-green-800 font-medium"
                   >

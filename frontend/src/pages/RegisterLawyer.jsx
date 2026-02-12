@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, User, Mail, Phone, GraduationCap, MapPin, Scale, FileText, Camera, Upload, MapPinned } from 'lucide-react';
-import axios from 'axios';
+import api from '../utils/api';
+import { sanitizeInput } from '../utils/sanitize';
 import { toast } from 'react-toastify';
 
 const RegisterLawyer = () => {
@@ -306,8 +307,8 @@ const RegisterLawyer = () => {
 
         try {
             setIsSendingOTP(true);
-            const response = await axios.post(`${backendUrl}/api/application/send-otp`, {
-                email: formData.application_email
+            const response = await api.post('/api/application/send-otp', {
+                email: sanitizeInput(formData.application_email)
             });
 
             if (response.data.success) {
@@ -332,8 +333,8 @@ const RegisterLawyer = () => {
 
         try {
             setIsVerifyingOTP(true);
-            const response = await axios.post(`${backendUrl}/api/application/verify-otp`, {
-                email: formData.application_email,
+            const response = await api.post('/api/application/verify-otp', {
+                email: sanitizeInput(formData.application_email),
                 otp: otpValue
             });
 
@@ -364,29 +365,32 @@ const RegisterLawyer = () => {
             // Create FormData for file uploads
             const submitData = new FormData();
 
-            // Add text fields
-            submitData.append('application_name', formData.application_name);
-            submitData.append('application_email', formData.application_email);
+            // Add text fields (sanitized)
+            submitData.append('application_name', sanitizeInput(formData.application_name));
+            submitData.append('application_email', sanitizeInput(formData.application_email));
             submitData.append('application_password', formData.application_password);
-            submitData.append('application_phone', formData.application_phone);
-            submitData.append('application_office_phone', formData.application_office_phone);
+            submitData.append('application_phone', sanitizeInput(formData.application_phone));
+            submitData.append('application_office_phone', sanitizeInput(formData.application_office_phone));
             submitData.append('application_speciality', formData.application_speciality);
             submitData.append('application_gender', formData.application_gender);
             submitData.append('application_dob', formData.application_dob);
             submitData.append('application_degree', JSON.stringify(formData.application_degree));
             submitData.append('application_district', formData.application_district);
-            submitData.append('application_license_number', formData.application_license_number);
-            submitData.append('application_bar_association', formData.application_bar_association);
+            submitData.append('application_license_number', sanitizeInput(formData.application_license_number));
+            submitData.append('application_bar_association', sanitizeInput(formData.application_bar_association));
             submitData.append('application_experience', formData.application_experience);
             submitData.append('application_languages_spoken', JSON.stringify(formData.application_languages_spoken));
-            submitData.append('application_about', formData.application_about);
+            submitData.append('application_about', sanitizeInput(formData.application_about));
             submitData.append('application_legal_professionals', JSON.stringify(formData.application_legal_professionals));
             submitData.append('application_fees', formData.application_fees);
-            submitData.append('application_address', JSON.stringify(formData.application_address));
+            submitData.append('application_address', JSON.stringify({
+                line1: sanitizeInput(formData.application_address?.line1 || ''),
+                line2: sanitizeInput(formData.application_address?.line2 || '')
+            }));
             submitData.append('application_latitude', formData.application_latitude);
             submitData.append('application_longitude', formData.application_longitude);
-            submitData.append('application_court1', formData.application_court1);
-            submitData.append('application_court2', formData.application_court2);
+            submitData.append('application_court1', sanitizeInput(formData.application_court1));
+            submitData.append('application_court2', sanitizeInput(formData.application_court2));
 
             // Add files
             if (formData.application_image) {
@@ -405,7 +409,7 @@ const RegisterLawyer = () => {
             }
 
             // Submit to backend
-            const response = await axios.post(`${backendUrl}/api/application/add-application`, submitData, {
+            const response = await api.post('/api/application/add-application', submitData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 }
