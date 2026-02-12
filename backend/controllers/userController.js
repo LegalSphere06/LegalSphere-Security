@@ -136,7 +136,7 @@ const updateProfile = async (req, res) => {
 
 const bookAppointment = async (req, res) => {
   try {
-    const { userId, lawyerId, slotDate, slotTime, consultationType } = req.body  // ADD consultationType here
+    const { userId, lawyerId, slotDate, slotTime, consultationType } = req.body
 
     const lawyerData = await lawyerModel.findById(lawyerId).select('-password')
 
@@ -152,8 +152,8 @@ const bookAppointment = async (req, res) => {
 
     let slots_booked = lawyerData.slots_booked;
 
-    // Check availability
-    if (slots_booked[slotDate] && slots_booked[slotDate].includes(slotTime)) {
+    // Check availability using optional chaining
+    if (slots_booked[slotDate]?.includes(slotTime)) {
       return res.json({ success: false, message: 'Slot not available' });
     }
 
