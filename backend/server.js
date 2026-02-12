@@ -1,5 +1,8 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import morgan from "morgan";
 import "dotenv/config";
 import connectDB from "./config/mongodb.js";
 import connectCloudinary from "./config/cloudinary.js";
@@ -78,9 +81,82 @@ const dropOldIndexes = async () => {
 // Initialize the app
 initializeApp();
 
-// middlewares
-app.use(express.json());
-app.use(cors());
+// ========================================
+// 🔐 SECURITY MIDDLEWARES
+// ========================================
+
+// Content Security Policy (CSP) - Prevents XSS and injection attacks
+app.use(
+  helmet.contentSecurityPolicy({
+    directives: {
+      defaultSrc: ["'self'"],           // Only allow resources from same origin
+      scriptSrc: ["'self'"],             // Only allow scripts from same origin (blocks inline scripts)
+      objectSrc: ["'none'"],             // Block all <object>, <embed>, and <applet> elements
+      upgradeInsecureRequests: []        // Automatically upgrade HTTP to HTTPS
+    }
+  })
+);
+
+// Other Security Headers (XSS Protection, Frame Options, etc.)
+app.use(helmet({
+  contentSecurityPolicy: false  // We're handling CSP separately above
+}));
+
+// Enable CORS securely
+app.use(cors({
+  origin: process.env.FRONTEND_URL || "http://localhost:5173",
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
+}));
+
+// Parse JSON with size limit
+app.use(express.json({ limit: "10mb" }));
+
+// Logging (API Monitoring)
+app.use(morgan("combined"));
+
+// ========================================
+// 🚨 RATE LIMITING (API Abuse Prevention)
+// ========================================
+
+// General API Rate Limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per window
+  message: "Too many requests from this IP, please try again later.",
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.use(limiter);
+
+// Strict Rate Limiting for Login Endpoints (Brute Force Protection)
+const loginLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  max: 5, // limit each IP to 5 login attempts per window
+  message: "Too many login attempts. Please try again after 10 minutes.",
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true // Don't count successful logins
+});
+
+// Rate Limiting for Registration (Prevent Account Creation Abuse)
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3, // limit each IP to 3 registration attempts per hour
+  message: "Too many accounts created from this IP. Please try again after an hour.",
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Apply login rate limiter to all login routes
+app.use("/api/user/login", loginLimiter);
+app.use("/api/admin/login", loginLimiter);
+app.use("/api/lawyer/login", loginLimiter);
+
+// Apply registration rate limiter to all register routes
+app.use("/api/user/register", registerLimiter);
+app.use("/api/admin/register", registerLimiter);
+app.use("/api/lawyer/register", registerLimiter);
 
 // Serve static files from uploads directory
 app.use('/uploads', express.static(uploadsDir));
