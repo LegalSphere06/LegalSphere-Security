@@ -6,6 +6,7 @@ import { v2 as cloudinary } from "cloudinary";
 import lawyerModel from "../models/lawyerModel.js";
 import appointmentModel from "../models/appointmentModel.js";
 import razorpay from 'razorpay'
+import crypto from 'crypto'
 
 // API to register user
 
@@ -285,16 +286,31 @@ const paymentRazorpay = async (req, res) => {
 
 const verifyRazorpay = async (req, res) => {
   try {
-    const { razorpay_order_id } = req.body
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body
+
+    // Validate required fields
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.json({ success: false, message: "Missing payment verification details" })
+    }
+
+    // Verify payment signature using HMAC SHA256
+    const generatedSignature = crypto
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest('hex')
+
+    if (generatedSignature !== razorpay_signature) {
+      return res.json({ success: false, message: "Payment verification failed - invalid signature" })
+    }
+
+    // Signature verified, now confirm order status
     const orderInfo = await razorpayInstance.orders.fetch(razorpay_order_id)
 
-    console.log(orderInfo)
     if (orderInfo.status === 'paid') {
       await appointmentModel.findByIdAndUpdate(orderInfo.receipt, { payment: true })
       res.json({ success: true, message: "Payment Successful" })
     } else {
       res.json({ success: false, message: "Payment Failed" })
-
     }
   } catch (error) {
     console.log(error);
