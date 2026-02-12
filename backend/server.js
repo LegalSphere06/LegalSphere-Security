@@ -3,8 +3,6 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import morgan from "morgan";
-import xss from "xss-clean";
-import mongoSanitize from 'express-mongo-sanitize';
 import "dotenv/config";
 import connectDB from "./config/mongodb.js";
 import connectCloudinary from "./config/cloudinary.js";
@@ -129,16 +127,30 @@ app.use(cors({
 // Parse JSON with size limit
 app.use(express.json({ limit: "10mb" }));
 
-// Sanitize user imput
-app.use(xss());
+// Custom MongoDB Sanitization Middleware (Express 5 Compatible)
+// Prevents NoSQL Injection by removing MongoDB operators from user input
+const sanitizeNoSQL = (obj) => {
+  if (obj && typeof obj === 'object') {
+    Object.keys(obj).forEach(key => {
+      // Remove keys that start with $ (MongoDB operators)
+      if (key.startsWith('$')) {
+        delete obj[key];
+        console.warn(`Sanitized malicious MongoDB operator: ${key}`);
+      } else if (typeof obj[key] === 'object') {
+        // Recursively sanitize nested objects
+        sanitizeNoSQL(obj[key]);
+      }
+    });
+  }
+  return obj;
+};
 
-// Sanitize MongoDB inputs (NoSQL Injection Prevention)
-app.use(mongoSanitize({
-  replaceWith: '_',
-  onSanitize: ({ req, key }) => {
-    console.warn(`Sanitized malicious input: ${key}`);
-  },
-}));
+app.use((req, res, next) => {
+  // Sanitize body and params (query is read-only in Express 5)
+  if (req.body) sanitizeNoSQL(req.body);
+  if (req.params) sanitizeNoSQL(req.params);
+  next();
+});
 
 // Logging (API Monitoring)
 app.use(morgan("combined"));
