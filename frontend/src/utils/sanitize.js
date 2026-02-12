@@ -17,13 +17,13 @@
 export const sanitizeInput = (input) => {
   if (typeof input !== "string") return input;
   // Remove all HTML tags
-  const stripped = input.replace(/<[^>]*>/g, "");
+  const stripped = input.replaceAll(/<[^>]*>/g, "");
   // Remove potentially dangerous characters/patterns
   const cleaned = stripped
-    .replace(/javascript:/gi, "")
-    .replace(/on\w+\s*=/gi, "")
-    .replace(/data:/gi, "")
-    .replace(/vbscript:/gi, "");
+    .replaceAll(/javascript:/gi, "")
+    .replaceAll(/on\w+\s*=/gi, "")
+    .replaceAll(/data:/gi, "")
+    .replaceAll(/vbscript:/gi, "");
   return cleaned.trim();
 };
 
@@ -44,7 +44,7 @@ export const escapeHtml = (str) => {
     "'": "&#x27;",
     "/": "&#x2F;",
   };
-  return str.replace(/[&<>"'/]/g, (char) => escapeMap[char]);
+  return str.replaceAll(/[&<>"'/]/g, (char) => escapeMap[char]);
 };
 
 /**
