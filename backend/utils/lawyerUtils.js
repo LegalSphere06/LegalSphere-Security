@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import { v2 as cloudinary } from "cloudinary";
 import validator from "validator";
+import mongoose from "mongoose";
 
 /**
  * Sanitize string input to prevent NoSQL injection
@@ -14,6 +15,23 @@ const sanitizeString = (input) => {
     }
     // Trim whitespace
     return input.trim();
+};
+
+/**
+ * Sanitize and validate MongoDB ObjectId
+ * @param {any} id - ID to sanitize and validate
+ * @returns {string|null} Valid ObjectId string or null
+ */
+export const sanitizeMongoId = (id) => {
+    // Ensure it's a string
+    const sanitized = sanitizeString(id);
+
+    // Check if it's a valid MongoDB ObjectId
+    if (!sanitized || !mongoose.Types.ObjectId.isValid(sanitized)) {
+        return null;
+    }
+
+    return sanitized;
 };
 
 /**
@@ -198,12 +216,14 @@ export const checkLawyerExists = async (lawyerModel, email, licenseNumber, exclu
         ]
     };
 
-    // Sanitize excludeId if provided
+    // CRITICAL: Sanitize excludeId if provided
     if (excludeId) {
-        const sanitizedId = sanitizeString(excludeId);
-        if (sanitizedId) {
-            query._id = { $ne: sanitizedId };
+        const sanitizedId = sanitizeMongoId(excludeId);
+        if (!sanitizedId) {
+            console.warn('Invalid excludeId detected in checkLawyerExists');
+            return null;
         }
+        query._id = { $ne: sanitizedId };
     }
 
     return await lawyerModel.findOne(query);
