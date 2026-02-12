@@ -288,7 +288,7 @@ const paymentRazorpay = async (req, res) => {
 
 const verifyRazorpay = async (req, res) => {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body
+    const { userId, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body
 
     // Validate required fields
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
@@ -309,6 +309,17 @@ const verifyRazorpay = async (req, res) => {
     const orderInfo = await razorpayInstance.orders.fetch(razorpay_order_id)
 
     if (orderInfo.status === 'paid') {
+      // Verify the appointment belongs to the authenticated user
+      const appointmentData = await appointmentModel.findById(orderInfo.receipt)
+
+      if (!appointmentData) {
+        return res.json({ success: false, message: "Appointment not found" })
+      }
+
+      if (appointmentData.userId !== userId) {
+        return res.json({ success: false, message: "Unauthorized - appointment does not belong to this user" })
+      }
+
       await appointmentModel.findByIdAndUpdate(orderInfo.receipt, { payment: true })
       res.json({ success: true, message: "Payment Successful" })
     } else {
