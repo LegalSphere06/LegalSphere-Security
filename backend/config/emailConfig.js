@@ -1,6 +1,6 @@
 import * as brevo from '@getbrevo/brevo';
 
-// Configure Brevo API with better settings
+// Configure Brevo API
 let apiInstance = new brevo.TransactionalEmailsApi();
 
 // Set API key
@@ -10,12 +10,8 @@ apiKey.apiKey = process.env.BREVO_API_KEY;
 // Verify API key is loaded
 console.log('🔑 Brevo API Key loaded:', process.env.BREVO_API_KEY ? 'YES ✅' : 'NO ❌');
 
-// Configure timeout and retries
-apiInstance.apiClient.timeout = 60000; // 60 second timeout
-apiInstance.apiClient.defaultHeaders = {
-  'Content-Type': 'application/json',
-  'Accept': 'application/json'
-};
+// Note: The newer Brevo SDK doesn't expose apiClient.timeout directly
+// Timeout and retry logic is handled internally by the SDK
 
 // Helper function to validate email
 const isValidEmail = (email) => {
@@ -221,7 +217,7 @@ export const sendRejectionEmail = async (recipientEmail, recipientName) => {
   }
 };
 
-// Send Bulk Email - FIXED VERSION
+// Send Bulk Email
 export const sendBulkEmail = async (recipients, subject, messageContent) => {
   console.log(`📧 Attempting to send bulk email to ${recipients.length} recipient(s)`);
   console.log('📋 Recipients:', recipients);

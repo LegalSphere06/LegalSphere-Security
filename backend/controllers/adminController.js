@@ -706,6 +706,7 @@ const rejectApplication = async (req, res) => {
   }
 };
 
+
 // API to send email to lawyers
 const sendEmailToLawyers = async (req, res) => {
   try {
@@ -719,9 +720,7 @@ const sendEmailToLawyers = async (req, res) => {
       return res.json({ success: false, message: "Subject and message are required" });
     }
 
-    // Import the email sending function
-    const { sendBulkEmail } = await import('../config/simpleEmail.js');
-    
+    // sendBulkEmail is already imported at the top
     const emailSent = await sendBulkEmail(recipientEmails, subject, message);
 
     if (emailSent) {
