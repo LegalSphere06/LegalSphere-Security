@@ -93,18 +93,30 @@ app.use(
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
-        connectSrc: ["'self'"],
-        imgSrc: ["'self'", "data:"],
+        connectSrc: [
+          "'self'",
+          "https://api.cloudinary.com",
+          "https://*.mongodb.net",
+          process.env.FRONTEND_URL || "http://localhost:5173"
+        ],
+        imgSrc: ["'self'", "data:", "https://res.cloudinary.com"],
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
         formAction: ["'self'"],
-        frameAncestors: ["'self'"],
-        upgradeInsecureRequests: []
+        frameAncestors: ["'self'"] // Keep this - prevents clickjacking
+        // upgradeInsecureRequests enabled by default when removed
       }
     },
-    crossOriginResourcePolicy: { policy: "cross-origin" } // Allow cross-origin access to static files (uploads)
+    crossOriginResourcePolicy: { policy: "cross-origin" }
   })
 );
+
+// HTTP Strict Transport Security (HSTS)
+app.use(helmet.hsts({
+  maxAge: 31536000,
+  includeSubDomains: true,
+  preload: true
+}));
 
 // Enable CORS securely
 app.use(cors({
