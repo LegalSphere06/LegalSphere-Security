@@ -45,7 +45,7 @@ const registerUser = async (req, res) => {
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
     res.json({ success: true, token });
   } catch (error) {
-    console.log(error);
+    console.error('[registerUser] Registration failed:', error.message, error);
     res.json({ success: false, message: error.message });
   }
 };
@@ -68,7 +68,7 @@ const loginUser = async (req, res) => {
       res.json({ success: false, message: "Invalid credentials" });
     }
   } catch (error) {
-    console.log(error);
+    console.error('[loginUser] Login failed:', error.message, error);
     res.json({ success: false, message: error.message });
   }
 };
@@ -82,7 +82,7 @@ const getProfile = async (req, res) => {
 
     res.json({ success: true, userData });
   } catch (error) {
-    console.log(error);
+    console.error('[getProfile] Failed to fetch profile:', error.message, error);
     res.json({ success: false, message: error.message });
   }
 };
@@ -102,6 +102,7 @@ const updateProfile = async (req, res) => {
     try {
       parsedAddress = typeof address === 'string' ? JSON.parse(address) : address;
     } catch (error) {
+      console.error('[updateProfile] Address parsing error:', error.message);
       return res.json({ success: false, message: "Invalid address format" });
     }
 
@@ -128,7 +129,7 @@ const updateProfile = async (req, res) => {
 
     res.json({ success: true, message: "Profile Updated" });
   } catch (error) {
-    console.log(error);
+    console.error('[updateProfile] Profile update failed:', error.message, error);
     res.json({ success: false, message: error.message });
   }
 };//API to book appointment
@@ -186,7 +187,7 @@ const bookAppointment = async (req, res) => {
     res.json({ success: true, message: 'Appointment Booked' });
 
   } catch (error) {
-    console.log(error);
+    console.error('[bookAppointment] Booking failed:', error.message, error);
     res.json({ success: false, message: error.message });
   }
 }
@@ -202,7 +203,7 @@ const listAppointment = async (req, res) => {
     res.json({ success: true, appointments })
 
   } catch (error) {
-    console.log(error);
+    console.error('[listAppointment] Failed to fetch appointments:', error.message, error);
     res.json({ success: false, message: error.message });
   }
 }
@@ -239,7 +240,7 @@ const cancelAppointment = async (req, res) => {
 
 
   } catch (error) {
-    console.log(error);
+    console.error('[cancelAppointment] Cancellation failed:', error.message, error);
     res.json({ success: false, message: error.message });
   }
 }
@@ -275,7 +276,7 @@ const paymentRazorpay = async (req, res) => {
     res.json({ success: true, order })
 
   } catch (error) {
-    console.log(error);
+    console.error('[paymentRazorpay] Payment creation failed:', error.message, error);
     res.json({ success: false, message: error.message });
   }
 
@@ -300,7 +301,7 @@ const verifyRazorpay = async (req, res) => {
 
     }
   } catch (error) {
-    console.log(error);
+    console.error('[verifyRazorpay] Payment verification failed:', error.message, error);
     res.json({ success: false, message: error.message });
   }
 }
@@ -315,7 +316,7 @@ const getUsersForGIS = async (req, res) => {
 
     res.json({ success: true, users });
   } catch (error) {
-    console.log(error);
+    console.error('[getUsersForGIS] Failed to fetch GIS users:', error.message, error);
     res.json({ success: false, message: error.message });
   }
 };

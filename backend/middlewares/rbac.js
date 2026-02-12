@@ -2,13 +2,6 @@
 // ROLE-BASED ACCESS CONTROL (RBAC) MIDDLEWARE
 // ========================================
 
-/**
- * Middleware factory to check if user has required role(s)
- * Usage: router.get('/admin/dashboard', authUser, requireRole('admin'), handler)
- * 
- * @param {string|string[]} allowedRoles - Single role or array of allowed roles
- * @returns {Function} Express middleware function
- */
 const requireRole = (allowedRoles) => {
     return (req, res, next) => {
         try {
@@ -42,10 +35,6 @@ const requireRole = (allowedRoles) => {
     };
 };
 
-/**
- * Middleware to check if user is an admin
- * Usage: router.get('/admin/dashboard', authUser, requireAdmin, handler)
- */
 const requireAdmin = (req, res, next) => {
     try {
         if (!req.user) {
@@ -72,10 +61,6 @@ const requireAdmin = (req, res, next) => {
     }
 };
 
-/**
- * Middleware to check if user is a lawyer
- * Usage: router.get('/lawyer/appointments', authLawyer, requireLawyer, handler)
- */
 const requireLawyer = (req, res, next) => {
     try {
         if (!req.user) {
@@ -102,11 +87,7 @@ const requireLawyer = (req, res, next) => {
     }
 };
 
-/**
- * Middleware to check if user owns the resource
- * Compares req.user.id with req.params.userId or req.body.userId
- * Usage: router.put('/user/:userId/profile', authUser, requireOwnership, handler)
- */
+
 const requireOwnership = (req, res, next) => {
     try {
         if (!req.user) {

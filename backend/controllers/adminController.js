@@ -1,6 +1,11 @@
 import validator from "validator";
-import bcrypt from "bcrypt";
-import { v2 as cloudinary } from "cloudinary";
+import {
+  uploadImageToCloudinary,
+  hashPassword,
+  validatePassword,
+  buildLawyerData,
+  checkLawyerExists,
+} from '../utils/lawyerUtils.js';
 import lawyerModel from "../models/lawyerModel.js";
 import jwt from "jsonwebtoken";
 import appointmentModel from "../models/appointmentModel.js";
@@ -14,78 +19,36 @@ const addLawyer = async (req, res) => {
   try {
     console.log("Request received at addLawyer controller");
 
-    const {
-      name,
-      email,
-      password,
-      phone,
-      office_phone,
-      speciality,
-      gender,
-      dob,
-      degree,
-      district,
-      license_number,
-      bar_association,
-      experience,
-      languages_spoken,
-      about,
-      available,
-      legal_professionals,
-      fees,
-      total_reviews,
-      address,
-      latitude,
-      longitude,
-      court1,
-      court2,
-      slots_booked,
-      method,
-      online_link,
-    } = req.body;
-
+    const { name, email, password, speciality, district, license_number, method, online_link } = req.body;
     const imageFile = req.file;
 
-    console.log("Image file:", imageFile);
-
-    // checking for required lawyer data only
-    if (
-      !name ||
-      !email ||
-      !password ||
-      !speciality ||
-      !district ||
-      !license_number
-    ) {
+    // Validate required fields
+    if (!name || !email || !password || !speciality || !district || !license_number) {
       return res.json({ success: false, message: "Missing Required Details" });
     }
 
-    // validating email format
+    // Validate email
     if (!validator.isEmail(email)) {
-      return res.json({
-        success: false,
-        message: "Please Enter a valid Email",
-      });
+      return res.json({ success: false, message: "Please Enter a valid Email" });
     }
 
-    // validating strong Password
-    if (password.length < 8) {
-      return res.json({
-        success: false,
-        message: "Please Enter a Strong Password",
-      });
+    // Validate password
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res.json({ success: false, message: passwordValidation.message });
     }
 
-    // Check if lawyer with this email already exists
-    const existingLawyer = await lawyerModel.findOne({ email });
+    // Check if lawyer exists
+    const existingLawyer = await checkLawyerExists(lawyerModel, email, license_number);
     if (existingLawyer) {
+      const field = existingLawyer.email === email ? 'email' : 'license number';
       return res.json({
         success: false,
-        message: "Lawyer with this email already exists",
+        message: `Lawyer with this ${field} already exists`,
       });
     }
 
-    // Online Link validation
+    // Validate online consultation
     if (method === "online" && !online_link) {
       return res.json({
         success: false,
@@ -93,100 +56,40 @@ const addLawyer = async (req, res) => {
       });
     }
 
-    // Hashing Lawyer's password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
+    // Upload image
     let imageUrl = '';
-
-    // Upload Image to cloudinary if image exists
-    if (imageFile) {
-      try {
-        console.log("Processing image upload...");
-        console.log("Image buffer length:", imageFile.buffer.length);
-        console.log("Image mimetype:", imageFile.mimetype);
-
-        // Convert buffer to base64 string for Cloudinary
-        const b64 = Buffer.from(imageFile.buffer).toString("base64");
-        const dataURI = "data:" + imageFile.mimetype + ";base64," + b64;
-
-        console.log("DataURI created, length:", dataURI.length);
-
-        const imageUpload = await cloudinary.uploader.upload(dataURI, {
-          resource_type: "image",
-          folder: "lawyers",
-          timeout: 60000,
-        });
-
-        imageUrl = imageUpload.secure_url;
-        console.log("Image uploaded successfully:", imageUrl);
-
-      } catch (uploadError) {
-        console.log("Image upload error:", uploadError);
-        return res.json({ success: false, message: "Image upload failed: " + uploadError.message });
-      }
-    } else {
-      console.log("No image file provided - proceeding without image");
+    try {
+      imageUrl = await uploadImageToCloudinary(imageFile);
+    } catch (uploadError) {
+      return res.json({ success: false, message: uploadError.message });
     }
 
-    const lawyerData = {
-      name,
-      email,
-      image: imageUrl,
-      password: hashedPassword,
-      phone,
-      office_phone,
-      speciality,
-      gender,
-      dob,
-      degree,
-      district,
-      license_number,
-      bar_association,
-      experience,
-      languages_spoken: Array.isArray(languages_spoken) ? languages_spoken : [languages_spoken].filter(Boolean),
-      about: about || 'No additional information provided',
-      available: available !== undefined ? available : true,
-      legal_professionals,
-      fees: fees ? Number(fees) : 0,
-      total_reviews: total_reviews || 0,
-      address: typeof address === 'string' ? JSON.parse(address) : address,
-      latitude: latitude ? Number(latitude) : 0,
-      longitude: longitude ? Number(longitude) : 0,
-      court1,
-      court2,
-      date: Date.now(),
-      slots_booked: slots_booked || {},
-      method: method || 'both',
-      online_link: online_link || '',
-    };
+    // Hash password
+    const hashedPassword = await hashPassword(password);
 
-    try {
-      const newLawyer = new lawyerModel(lawyerData);
-      await newLawyer.save();
-      console.log("Lawyer saved successfully");
-      res.json({ success: true, message: "Lawyer Added" });
-    } catch (saveError) {
-      console.log("Database save error:", saveError);
+    // Build lawyer data
+    const lawyerData = buildLawyerData(req.body, imageUrl, hashedPassword);
 
-      // Handle specific MongoDB errors
-      if (saveError.code === 11000) {
-        const field = Object.keys(saveError.keyValue)[0];
-        const value = saveError.keyValue[field];
-        return res.json({
-          success: false,
-          message: `A lawyer with this ${field} (${value}) already exists`
-        });
-      }
+    // Save lawyer
+    const newLawyer = new lawyerModel(lawyerData);
+    await newLawyer.save();
 
+    console.log("Lawyer saved successfully");
+    res.json({ success: true, message: "Lawyer Added" });
+
+  } catch (error) {
+    console.error("[addLawyer] Error:", error.message, error);
+
+    // Handle MongoDB duplicate key error
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyValue)[0];
+      const value = error.keyValue[field];
       return res.json({
         success: false,
-        message: "Failed to save lawyer: " + saveError.message
+        message: `A lawyer with this ${field} (${value}) already exists`
       });
     }
 
-  } catch (error) {
-    console.log("Error:", error);
     res.json({ success: false, message: error.message });
   }
 };
@@ -320,33 +223,7 @@ const updateLawyer = async (req, res) => {
     console.log("Request received at updateLawyer controller");
 
     const { lawyerId } = req.params;
-    const {
-      name,
-      email,
-      password,
-      phone,
-      office_phone,
-      speciality,
-      gender,
-      dob,
-      degree,
-      district,
-      license_number,
-      bar_association,
-      experience,
-      languages_spoken,
-      about,
-      available,
-      legal_professionals,
-      fees,
-      address,
-      latitude,
-      longitude,
-      court1,
-      method,
-      online_link,
-    } = req.body;
-
+    const { email, password, license_number } = req.body;
     const imageFile = req.file;
 
     // Find existing lawyer
@@ -355,90 +232,50 @@ const updateLawyer = async (req, res) => {
       return res.json({ success: false, message: "Lawyer not found" });
     }
 
-    // Check if email is being changed and if new email already exists
-    if (email !== existingLawyer.email) {
-      const emailExists = await lawyerModel.findOne({ email, _id: { $ne: lawyerId } });
-      if (emailExists) {
+    // Check if email/license is being changed and if it already exists
+    if (email !== existingLawyer.email || license_number !== existingLawyer.license_number) {
+      const duplicateLawyer = await checkLawyerExists(lawyerModel, email, license_number, lawyerId);
+      if (duplicateLawyer) {
+        const field = duplicateLawyer.email === email ? 'email' : 'license number';
         return res.json({
           success: false,
-          message: "Another lawyer with this email already exists",
+          message: `Another lawyer with this ${field} already exists`,
         });
       }
     }
 
-    // Validate and hash new password if provided
+    // Handle password update
     let hashedPassword = existingLawyer.password;
     if (password && password.trim() !== '') {
-      if (password.length < 8) {
-        return res.json({
-          success: false,
-          message: "Password must be at least 8 characters long",
-        });
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.valid) {
+        return res.json({ success: false, message: passwordValidation.message });
       }
-
-      const salt = await bcrypt.genSalt(10);
-      hashedPassword = await bcrypt.hash(password, salt);
-      console.log("New password hashed for lawyer:", name);
+      hashedPassword = await hashPassword(password);
+      console.log("New password hashed for lawyer:", req.body.name);
     }
 
+    // Handle image update
     let imageUrl = existingLawyer.image;
-
-    // Upload new image if provided
-    if (imageFile) {
-      try {
-        console.log("Processing image upload for update...");
-        const b64 = Buffer.from(imageFile.buffer).toString("base64");
-        const dataURI = "data:" + imageFile.mimetype + ";base64," + b64;
-
-        const imageUpload = await cloudinary.uploader.upload(dataURI, {
-          resource_type: "image",
-          folder: "lawyers",
-          timeout: 60000,
-        });
-
-        imageUrl = imageUpload.secure_url;
-        console.log("New image uploaded successfully:", imageUrl);
-
-      } catch (uploadError) {
-        console.log("Image upload error:", uploadError);
-        return res.json({ success: false, message: "Image upload failed: " + uploadError.message });
+    try {
+      const newImageUrl = await uploadImageToCloudinary(imageFile);
+      if (newImageUrl) {
+        imageUrl = newImageUrl;
       }
+    } catch (uploadError) {
+      return res.json({ success: false, message: uploadError.message });
     }
 
-    const updateData = {
-      name,
-      email,
-      image: imageUrl,
-      password: hashedPassword,
-      phone,
-      office_phone,
-      speciality,
-      gender,
-      dob,
-      degree,
-      district,
-      license_number,
-      bar_association,
-      experience,
-      languages_spoken: Array.isArray(languages_spoken) ? languages_spoken : [languages_spoken].filter(Boolean),
-      about: about || 'No additional information provided',
-      available: available !== undefined ? available : true,
-      legal_professionals,
-      fees: fees ? Number(fees) : 0,
-      address: typeof address === 'string' ? JSON.parse(address) : address,
-      latitude: latitude ? Number(latitude) : 0,
-      longitude: longitude ? Number(longitude) : 0,
-      court1,
-      method: method || 'both',
-      online_link: online_link || '',
-    };
+    // Build update data
+    const updateData = buildLawyerData(req.body, imageUrl, hashedPassword);
 
+    // Update lawyer
     await lawyerModel.findByIdAndUpdate(lawyerId, updateData, { new: true });
 
     res.json({ success: true, message: "Lawyer updated successfully" });
 
   } catch (error) {
-    console.log("Error:", error);
+    console.error("[updateLawyer] Error:", error.message, error);
     res.json({ success: false, message: error.message });
   }
 };
@@ -452,8 +289,10 @@ const resetLawyerPassword = async (req, res) => {
       return res.json({ success: false, message: "Lawyer ID and new password are required" });
     }
 
-    if (newPassword.length < 8) {
-      return res.json({ success: false, message: "Password must be at least 8 characters long" });
+    // Validate password
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.valid) {
+      return res.json({ success: false, message: passwordValidation.message });
     }
 
     // Check if lawyer exists
@@ -462,18 +301,15 @@ const resetLawyerPassword = async (req, res) => {
       return res.json({ success: false, message: "Lawyer not found" });
     }
 
-    // Hash the new password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(newPassword, salt);
-
-    // Update the lawyer's password
+    // Hash and update password
+    const hashedPassword = await hashPassword(newPassword);
     await lawyerModel.findByIdAndUpdate(lawyerId, { password: hashedPassword });
 
     console.log(`Password reset for lawyer: ${lawyer.name} (${lawyer.email})`);
     res.json({ success: true, message: "Password reset successfully" });
 
   } catch (error) {
-    console.log("Error:", error);
+    console.error("[resetLawyerPassword] Error:", error.message, error);
     res.json({ success: false, message: error.message });
   }
 };
@@ -531,29 +367,20 @@ const approveApplication = async (req, res) => {
     const { applicationId } = req.body;
 
     if (!applicationId) {
-      return res.json({
-        success: false,
-        message: "Application ID is required"
-      });
+      return res.json({ success: false, message: "Application ID is required" });
     }
 
     const application = await applicationModel.findById(applicationId);
-    console.log("Found application:", application ? "Yes" : "No");
-
     if (!application) {
-      return res.json({
-        success: false,
-        message: "Application not found"
-      });
+      return res.json({ success: false, message: "Application not found" });
     }
 
-    const existingLawyer = await lawyerModel.findOne({
-      $or: [
-        { email: application.application_email },
-        { license_number: application.application_license_number }
-      ]
-    });
-
+    // Check if lawyer exists
+    const existingLawyer = await checkLawyerExists(
+      lawyerModel,
+      application.application_email,
+      application.application_license_number
+    );
     if (existingLawyer) {
       return res.json({
         success: false,
@@ -561,68 +388,62 @@ const approveApplication = async (req, res) => {
       });
     }
 
-    if (!application.application_password || application.application_password.trim() === '') {
+    // Validate password from application
+    const passwordValidation = validatePassword(application.application_password);
+    if (!passwordValidation.valid) {
       return res.json({
         success: false,
-        message: "Application does not contain a password. Please ensure the applicant has set a password."
+        message: `Application password issue: ${passwordValidation.message}`
       });
     }
 
-    if (application.application_password.length < 8) {
-      return res.json({
-        success: false,
-        message: "Application password must be at least 8 characters long"
-      });
-    }
-
-    // Store the plain password before hashing for email
+    // Store plain password for email
     const plainPassword = application.application_password;
 
-    console.log("Using password from application for:", application.application_email);
+    // Hash password
+    const hashedPassword = await hashPassword(application.application_password);
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(application.application_password, salt);
-
-    const lawyerData = {
+    // Map application data to lawyer data format
+    const mappedData = {
       name: application.application_name,
       email: application.application_email,
-      password: hashedPassword,
       phone: application.application_phone,
-      office_phone: application.application_office_phone || "",
-      image: application.application_image || "",
+      office_phone: application.application_office_phone,
       speciality: application.application_speciality,
       gender: application.application_gender,
-      dob: application.application_dob || "Not Selected",
-      degree: application.application_degree || [],
+      dob: application.application_dob,
+      degree: application.application_degree,
       district: application.application_district,
       license_number: application.application_license_number,
       bar_association: application.application_bar_association,
       experience: application.application_experience,
-      languages_spoken: application.application_languages_spoken || [],
-      about: application.application_about || "Professional lawyer",
-      available: true,
-      legal_professionals: application.application_legal_professionals || [],
-      fees: application.application_fees || 1000,
-      total_reviews: 0,
-      address: application.application_address || { street: "", district: application.application_district },
-      latitude: application.application_latitude || 0,
-      longitude: application.application_longitude || 0,
+      languages_spoken: application.application_languages_spoken,
+      about: application.application_about,
+      legal_professionals: application.application_legal_professionals,
+      fees: application.application_fees,
+      address: application.application_address,
+      latitude: application.application_latitude,
+      longitude: application.application_longitude,
       court1: application.application_court1,
-      court2: application.application_court2 || "",
-      date: Date.now(),
-      slots_booked: {},
-      method: "both",
-      online_link: ""
+      court2: application.application_court2,
     };
+
+    // Build lawyer data
+    const lawyerData = buildLawyerData(
+      mappedData,
+      application.application_image || '',
+      hashedPassword
+    );
 
     console.log("Creating lawyer with data:", { name: lawyerData.name, email: lawyerData.email });
 
+    // Create lawyer
     const newLawyer = new lawyerModel(lawyerData);
     await newLawyer.save();
 
     console.log("Lawyer created successfully with ID:", newLawyer._id);
 
-    // Approve
+    // Send approval email
     const emailSent = await sendApprovalEmail(
       application.application_email,
       application.application_name,
@@ -630,9 +451,10 @@ const approveApplication = async (req, res) => {
     );
 
     if (!emailSent) {
-      console.log("Warning: Welcome email could not be sent, but lawyer account was created");
+      console.warn("Warning: Welcome email could not be sent, but lawyer account was created");
     }
 
+    // Delete application
     await applicationModel.findByIdAndDelete(applicationId);
     console.log("Application deleted");
 
@@ -646,7 +468,7 @@ const approveApplication = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Error approving application:", error);
+    console.error("[approveApplication] Error:", error.message, error);
     res.json({
       success: false,
       message: error.message || "Failed to approve application"
