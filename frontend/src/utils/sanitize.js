@@ -1,13 +1,4 @@
 /**
- * Input Sanitization & XSS Prevention Utilities
- *
- * Provides functions to sanitize user input and escape HTML output
- * to prevent Cross-Site Scripting (XSS) attacks.
- *
- * Policy Reference: Risk R1 – Cross-Site Scripting (XSS)
- */
-
-/**
  * Sanitize user input by stripping HTML tags and trimming whitespace.
  * Use this on all user-entered text BEFORE sending to the API.
  *

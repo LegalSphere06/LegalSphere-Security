@@ -114,39 +114,48 @@ const RegisterLawyer = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [formData, passwordConfirm, currentStep]);
 
+    // Validation helper functions
+    const validatePersonalInfo = (errors) => {
+        if (formData.application_name && formData.application_name.length < 3) {
+            errors.name = 'Name must be at least 3 characters';
+        }
+        if (formData.application_dob) {
+            const dobYear = new Date(formData.application_dob).getFullYear();
+            if (dobYear >= 2000) {
+                errors.dob = 'Must be born before 2000';
+            }
+        }
+    };
+
+    const validateContactDetails = (errors) => {
+        if (formData.application_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.application_email)) {
+            errors.email = 'Invalid email format';
+        }
+        if (formData.application_password && formData.application_password.length < 8) {
+            errors.password = 'Password must be at least 8 characters';
+        }
+        if (passwordConfirm && formData.application_password !== passwordConfirm) {
+            errors.passwordConfirm = 'Passwords do not match';
+        }
+        if (formData.application_phone && !/^(?:\+94|0)?7\d{8}$/.test(formData.application_phone.replaceAll(/\s/g, ''))) {
+            errors.phone = 'Invalid Sri Lankan mobile number';
+        }
+        if (formData.application_office_phone && formData.application_office_phone.length > 0 &&
+            !/^(?:\+94|0)?(?:[1-9]1|2[1-7]|3[1-8]|4[157]|5[1-7]|6[1-7]|[78]1)\d{7}$/.test(formData.application_office_phone.replaceAll(/\s/g, ''))) {
+            errors.officePhone = 'Invalid Sri Lankan landline number';
+        }
+    };
+
     const validateCurrentStep = () => {
         const newErrors = {};
 
         switch (currentStep) {
             case 0: // Personal Info
-                if (formData.application_name && formData.application_name.length < 3) {
-                    newErrors.name = 'Name must be at least 3 characters';
-                }
-                if (formData.application_dob) {
-                    const dobYear = new Date(formData.application_dob).getFullYear();
-                    if (dobYear >= 2000) {
-                        newErrors.dob = 'Must be born before 2000';
-                    }
-                }
+                validatePersonalInfo(newErrors);
                 break;
 
             case 1: // Contact Details
-                if (formData.application_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.application_email)) {
-                    newErrors.email = 'Invalid email format';
-                }
-                if (formData.application_password && formData.application_password.length < 8) {
-                    newErrors.password = 'Password must be at least 8 characters';
-                }
-                if (passwordConfirm && formData.application_password !== passwordConfirm) {
-                    newErrors.passwordConfirm = 'Passwords do not match';
-                }
-                if (formData.application_phone && !/^(?:\+94|0)?7\d{8}$/.test(formData.application_phone.replace(/\s/g, ''))) {
-                    newErrors.phone = 'Invalid Sri Lankan mobile number';
-                }
-                if (formData.application_office_phone && formData.application_office_phone.length > 0 &&
-                    !/^(?:\+94|0)?(?:11|21|31|41|51|61|91|81|71|23|24|25|26|27|32|33|34|35|36|37|38|45|47|52|54|55|57|63|65|66|67)\d{7}$/.test(formData.application_office_phone.replace(/\s/g, ''))) {
-                    newErrors.officePhone = 'Invalid Sri Lankan landline number';
-                }
+                validateContactDetails(newErrors);
                 break;
 
             default:
@@ -199,7 +208,7 @@ const RegisterLawyer = () => {
     };
 
     const formatPhoneNumber = (value) => {
-        const cleaned = value.replace(/\D/g, '');
+        const cleaned = value.replaceAll(/\D/g, '');
         if (cleaned.startsWith('94')) {
             return `+94 ${cleaned.slice(2).replace(/(\d{2})(\d{3})(\d{4})/, '$1 $2 $3')}`;
         }
@@ -256,7 +265,7 @@ const RegisterLawyer = () => {
 
         for (const field of requiredFields) {
             if (!formData[field] || formData[field] === '') {
-                toast.error(`Please fill in ${field.replace('application_', '').replace(/_/g, ' ')}`);
+                toast.error(`Please fill in ${field.replace('application_', '').replaceAll(/_/g, ' ')}`);
                 return false;
             }
         }
