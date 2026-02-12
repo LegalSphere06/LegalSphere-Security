@@ -6,7 +6,9 @@ import { v2 as cloudinary } from "cloudinary";
 import lawyerModel from "../models/lawyerModel.js";
 import appointmentModel from "../models/appointmentModel.js";
 import razorpay from 'razorpay'
-import crypto from 'crypto'
+
+//No Razorpay signature verification
+import crypto from "node:crypto"
 
 // API to register user
 
