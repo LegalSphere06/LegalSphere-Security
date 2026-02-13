@@ -3,7 +3,7 @@ import { AdminContext } from '../context/AdminContext'
 import axios from 'axios'
 import { toast } from 'react-toastify'
 import { LawyerContext } from '../context/LawyerContext'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, ShieldCheck, ArrowLeft } from 'lucide-react'
 
 const Login = () => {
 
@@ -12,6 +12,11 @@ const Login = () => {
     const [password, setPassword] = useState('')
     const [showPassword, setShowPassword] = useState(false)
 
+    // MFA states
+    const [mfaStep, setMfaStep] = useState(false)
+    const [mfaToken, setMfaToken] = useState('')
+    const [otp, setOtp] = useState('')
+
     const { setAToken, backendUrl } = useContext(AdminContext)
     const { setDToken } = useContext(LawyerContext)
 
@@ -19,34 +24,116 @@ const Login = () => {
         event.preventDefault()
 
         try {
-            if (state === 'Admin') {
-                const { data } = await axios.post(backendUrl + '/api/admin/login', { email, password })
-                if (data.success) {
+            const endpoint = state === 'Admin' ? '/api/admin/login' : '/api/lawyer/login'
+            const { data } = await axios.post(backendUrl + endpoint, { email, password })
+
+            if (data.success) {
+                if (data.requiresMFA) {
+                    setMfaToken(data.mfaToken)
+                    setMfaStep(true)
+                    toast.success(data.message)
+                } else {
+                    // MFA disabled (lawyer only) - direct token
+                    if (state === 'Admin') {
+                        localStorage.setItem('aToken', data.token)
+                        setAToken(data.token)
+                    } else {
+                        localStorage.setItem('dToken', data.token)
+                        setDToken(data.token)
+                    }
+                }
+            } else {
+                toast.error(data.message)
+            }
+        } catch (error) {
+            toast.error(error.message)
+        }
+    }
+
+    const onVerifyOtp = async (event) => {
+        event.preventDefault()
+
+        try {
+            const endpoint = state === 'Admin' ? '/api/admin/verify-mfa' : '/api/lawyer/verify-mfa'
+            const { data } = await axios.post(backendUrl + endpoint, { mfaToken, otp })
+
+            if (data.success) {
+                if (state === 'Admin') {
                     localStorage.setItem('aToken', data.token)
                     setAToken(data.token)
                 } else {
-                    toast.error(data.message)
-                }
-            }
-            else {
-                const { data } = await axios.post(backendUrl + '/api/lawyer/login', { email, password })
-                if (data.success) {
                     localStorage.setItem('dToken', data.token)
                     setDToken(data.token)
-                } else {
-                    toast.error(data.message)
                 }
-            }
-
-        } catch (error) {
-            if (error.response?.data?.message) {
-                toast.error(error.response.data.message)
-            } else if (error.response?.status === 429) {
-                toast.error("Too many login attempts. Please try again later.")
             } else {
-                toast.error(error.message || "An error occurred during login")
+                toast.error(data.message)
             }
+        } catch (error) {
+            toast.error(error.message)
         }
+    }
+
+    const handleBackToLogin = () => {
+        setMfaStep(false)
+        setMfaToken('')
+        setOtp('')
+    }
+
+    const handleResendCode = async () => {
+        try {
+            const endpoint = state === 'Admin' ? '/api/admin/login' : '/api/lawyer/login'
+            const { data } = await axios.post(backendUrl + endpoint, { email, password })
+            if (data.success && data.requiresMFA) {
+                setMfaToken(data.mfaToken)
+                setOtp('')
+                toast.success('Verification code resent.')
+            } else {
+                toast.error(data.message || 'Failed to resend code.')
+            }
+        } catch (error) {
+            toast.error(error.message)
+        }
+    }
+
+    // MFA OTP Verification Screen
+    if (mfaStep) {
+        return (
+            <form onSubmit={onVerifyOtp} className='min-h-[80vh] flex items-center'>
+                <div className='flex flex-col gap-3 m-auto items-start p-8 min-w-[340px] sm:min-w-96 border rounded-xl text-[#5E5E5E] text-sm shadow-lg'>
+                    <div className='flex items-center gap-2 m-auto'>
+                        <ShieldCheck size={24} className='text-[#D00C1F]' />
+                        <p className='text-2xl font-semibold'>Verify Identity</p>
+                    </div>
+                    <p className='text-center w-full text-gray-500 text-xs'>
+                        A 6-digit verification code has been sent to your email.
+                    </p>
+                    <div className='w-full'>
+                        <p>Verification Code</p>
+                        <input
+                            onChange={(e) => setOtp(e.target.value)}
+                            value={otp}
+                            className='border border-[#DADADA] rounded w-full p-2 mt-1 text-center tracking-widest text-lg'
+                            type="text"
+                            maxLength={6}
+                            placeholder="000000"
+                            required
+                        />
+                    </div>
+                    <button
+                        className='text-white w-full py-2 rounded-md text-base'
+                        style={{ background: 'linear-gradient(to right, #D00C1F, #6A0610)' }}
+                    >Verify</button>
+                    <div className='flex justify-between w-full text-xs'>
+                        <button type='button' onClick={handleBackToLogin} className='flex items-center gap-1 text-[#6A0610] hover:underline'>
+                            <ArrowLeft size={14} /> Back to login
+                        </button>
+                        <button type='button' onClick={handleResendCode} className='text-[#6A0610] hover:underline'>
+                            Resend code
+                        </button>
+                    </div>
+                </div>
+            </form>
+        )
     }
 
     return (

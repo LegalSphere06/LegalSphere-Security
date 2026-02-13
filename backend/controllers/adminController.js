@@ -8,6 +8,7 @@ import userModel from "../models/userModel.js";
 import applicationModel from "../models/applicationModel.js";
 import { sendApprovalEmail, sendRejectionEmail, sendBulkEmail } from '../config/emailConfig.js';
 import { validatePassword } from "../utils/passwordValidator.js";
+import { initiateMFA } from "../utils/mfaService.js";
 
 
 // API for adding lawyer
@@ -203,8 +204,14 @@ const loginAdmin = async (req, res) => {
       email === process.env.ADMIN_EMAIL &&
       password === process.env.ADMIN_PASSWORD
     ) {
-      const token = jwt.sign({ role: "admin", email }, process.env.JWT_SECRET, { expiresIn: "1d" });
-      res.json({ success: true, token });
+      // MFA always enabled for admin
+      const mfaToken = await initiateMFA("admin", process.env.ADMIN_EMAIL, "admin");
+      return res.json({
+        success: true,
+        requiresMFA: true,
+        mfaToken,
+        message: "Verification code sent to admin email.",
+      });
     } else {
       res.json({ success: false, message: "Invalid credentials" });
     }

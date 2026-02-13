@@ -18,6 +18,7 @@ import auth from "../middlewares/auth.js";
 import { changeAvailability } from "../controllers/lawyerController.js";
 import { authLimiter } from "../middlewares/rateLimiter.js";
 import { sendEmailToLawyers } from "../controllers/adminController.js";
+import { verifyMFA } from "../controllers/mfaController.js";
 
 const adminRouter = express.Router();
 
@@ -34,6 +35,7 @@ adminRouter.post(
 );
 
 adminRouter.post("/login", authLimiter, loginAdmin);
+adminRouter.post("/verify-mfa", authLimiter, verifyMFA);
 adminRouter.post("/all-lawyers", auth("admin"), allLawyers);
 adminRouter.post("/change-availability", auth("admin"), changeAvailability);
 adminRouter.get('/appointments', auth("admin"), appointmentsAdmin);

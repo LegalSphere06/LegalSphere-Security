@@ -5,6 +5,7 @@ import appointmentModel from "../models/appointmentModel.js";
 import fs from 'fs';
 import path from 'path';
 import { validatePassword } from "../utils/passwordValidator.js";
+import { initiateMFA } from "../utils/mfaService.js";
 
 const changeAvailability = async (req, res) => {
   try {
@@ -91,6 +92,18 @@ const loginLawyer = async (req, res) => {
       accountLockedUntil: null,
     });
 
+    // MFA: send OTP if enabled
+    if (lawyer.mfaEnabled !== false) {
+      const mfaToken = await initiateMFA(lawyer._id.toString(), lawyer.email, "lawyer");
+      return res.json({
+        success: true,
+        requiresMFA: true,
+        mfaToken,
+        message: "Verification code sent to your email.",
+      });
+    }
+
+    // Fallback if MFA disabled - issue token directly
     const token = jwt.sign({ id: lawyer._id, role: "lawyer" }, process.env.JWT_SECRET, { expiresIn: "7d" });
     res.json({ success: true, token });
 
@@ -467,6 +480,29 @@ const updateOnlineLink = async (req, res) => {
 };
 
 
+// API to toggle MFA on/off for lawyer
+const toggleMFA = async (req, res) => {
+  try {
+    const { lawyerId } = req.body;
+    const lawyer = await lawyerModel.findById(lawyerId);
+    if (!lawyer) {
+      return res.json({ success: false, message: "Lawyer not found" });
+    }
+
+    const newMfaStatus = !lawyer.mfaEnabled;
+    await lawyerModel.findByIdAndUpdate(lawyerId, { mfaEnabled: newMfaStatus });
+
+    res.json({
+      success: true,
+      mfaEnabled: newMfaStatus,
+      message: `Two-factor authentication ${newMfaStatus ? "enabled" : "disabled"} successfully.`,
+    });
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
 export {
   changeAvailability,
   lawyerList,
@@ -479,5 +515,6 @@ export {
   updateLawyerProfile,
   changePassword,
   sendEmailToAdmin,
-  updateOnlineLink
+  updateOnlineLink,
+  toggleMFA
 };
