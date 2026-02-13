@@ -1122,6 +1122,12 @@ const RegisterLawyer = () => {
         }
     };
 
+    const getSubmitButtonText = () => {
+        if (isSubmitting) return 'Submitting...';
+        if (otpVerified) return 'Submit Application';
+        return 'Verify Email First';
+    };
+
     return (
         <div className='mt-8'>
             <div className="max-w-4xl mx-auto">
@@ -1174,7 +1180,7 @@ const RegisterLawyer = () => {
                                         : 'bg-gray-400 text-gray-200 cursor-not-allowed'
                                         } disabled:opacity-50`}
                                 >
-                                    {isSubmitting ? 'Submitting...' : otpVerified ? 'Submit Application' : 'Verify Email First'}
+                                    {getSubmitButtonText()}
                                 </button>
                             )}
                         </div>
