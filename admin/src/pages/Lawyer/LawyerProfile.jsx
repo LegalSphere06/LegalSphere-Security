@@ -4,6 +4,7 @@ import { AppContext } from '../../context/AppContext';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import Cropper from 'react-easy-crop';
+import { ShieldCheck, ShieldOff } from 'lucide-react';
 
 const LawyerProfile = () => {
     const { dToken, profileData, setProfileData, getProfileData, backendUrl } = useContext(LawyerContext);
@@ -22,6 +23,28 @@ const LawyerProfile = () => {
         newPassword: '',
         confirmPassword: ''
     });
+    const [mfaLoading, setMfaLoading] = useState(false);
+
+    const handleToggleMFA = async () => {
+        setMfaLoading(true);
+        try {
+            const { data } = await axios.post(
+                backendUrl + '/api/lawyer/toggle-mfa',
+                {},
+                { headers: { dtoken: dToken } }
+            );
+            if (data.success) {
+                setProfileData((prev) => ({ ...prev, mfaEnabled: data.mfaEnabled }));
+                toast.success(data.message);
+            } else {
+                toast.error(data.message);
+            }
+        } catch (error) {
+            toast.error(error.message);
+        } finally {
+            setMfaLoading(false);
+        }
+    };
 
     // Helper functions for image cropping
     const createImage = (url) =>
@@ -307,6 +330,43 @@ const LawyerProfile = () => {
                     </button>
                 </div>
             )}
+
+            {/* Security Settings - MFA Toggle */}
+            <div className='bg-white border rounded-lg p-4 mb-4'>
+                <h3 className='text-lg font-semibold mb-3'>Security Settings</h3>
+                <div className='flex items-center justify-between'>
+                    <div className='flex items-center gap-3'>
+                        {profileData.mfaEnabled !== false ? (
+                            <ShieldCheck size={24} className='text-green-600' />
+                        ) : (
+                            <ShieldOff size={24} className='text-gray-400' />
+                        )}
+                        <div>
+                            <p className='font-medium text-gray-700'>Two-Factor Authentication (2FA)</p>
+                            <p className='text-xs text-gray-500'>
+                                {profileData.mfaEnabled !== false
+                                    ? 'A verification code will be sent to your email each time you login.'
+                                    : 'Enable 2FA to add an extra layer of security to your account.'}
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={handleToggleMFA}
+                        disabled={mfaLoading}
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition disabled:opacity-50 ${
+                            profileData.mfaEnabled !== false
+                                ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'
+                                : 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-100'
+                        }`}
+                    >
+                        {mfaLoading
+                            ? 'Updating...'
+                            : profileData.mfaEnabled !== false
+                                ? 'Disable 2FA'
+                                : 'Enable 2FA'}
+                    </button>
+                </div>
+            </div>
 
             {/* Main Grid Layout */}
             <div className='grid grid-cols-1 lg:grid-cols-4 gap-4'>

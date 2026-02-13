@@ -4,6 +4,8 @@ import jwt from 'jsonwebtoken';
 import appointmentModel from "../models/appointmentModel.js";
 import fs from 'fs';
 import path from 'path';
+import { validatePassword } from "../utils/passwordValidator.js";
+import { initiateMFA } from "../utils/mfaService.js";
 
 const changeAvailability = async (req, res) => {
   try {
@@ -46,47 +48,64 @@ const lawyerList = async (req, res) => {
 const loginLawyer = async (req, res) => {
   try {
     const { email, password } = req.body;
-    // Sanitize inputs - prevent NoSQL injection----start
-if (typeof email !== 'string' || typeof password !== 'string') {
-  return res.json({ success: false, message: 'Invalid input format' });
-}
-
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-if (!emailRegex.test(email)) {
-  return res.json({ success: false, message: 'Invalid email format' });
-}
-    // Sanitize inputs - prevent NoSQL injection----end
 
     if (!email || !password) {
       return res.json({ success: false, message: 'Email and password are required' });
     }
 
-    console.log('Login attempt for email:', email);
-
     const lawyer = await lawyerModel.findOne({ email });
 
     if (!lawyer) {
-      console.log('No lawyer found with email:', email);
       return res.json({ success: false, message: 'Invalid Credentials' });
     }
 
-    console.log('Lawyer found:', lawyer.name);
-
     if (!lawyer.password) {
-      console.log('Lawyer account found but no password set');
       return res.json({ success: false, message: 'Account not fully set up. Please contact admin.' });
+    }
+
+    // Check account lockout
+    if (lawyer.accountLockedUntil && lawyer.accountLockedUntil > new Date()) {
+      const secondsLeft = Math.ceil((lawyer.accountLockedUntil - Date.now()) / 1000);
+      return res.json({
+        success: false,
+        message: `Account is locked. Try again in ${secondsLeft} second(s).`,
+      });
     }
 
     const isMatch = await bcrypt.compare(password, lawyer.password);
 
-    if (isMatch) {
-      const token = jwt.sign({ id: lawyer._id }, process.env.JWT_SECRET);
-      console.log('Login successful for:', lawyer.name);
-      res.json({ success: true, token });
-    } else {
-      console.log('Password mismatch for:', lawyer.name);
+    if (!isMatch) {
+      // Increment failed attempts, lock after 5 failures
+      const attempts = (lawyer.failedLoginAttempts || 0) + 1;
+      const update = { failedLoginAttempts: attempts };
+      if (attempts >= 3) {
+        update.accountLockedUntil = new Date(Date.now() + 30 * 1000); // 30 sec lock (increase for production)
+        update.failedLoginAttempts = 0;
+      }
+      await lawyerModel.findByIdAndUpdate(lawyer._id, update);
       return res.json({ success: false, message: 'Invalid Credentials' });
     }
+
+    // Reset failed attempts on successful password
+    await lawyerModel.findByIdAndUpdate(lawyer._id, {
+      failedLoginAttempts: 0,
+      accountLockedUntil: null,
+    });
+
+    // MFA: send OTP if enabled
+    if (lawyer.mfaEnabled !== false) {
+      const mfaToken = await initiateMFA(lawyer._id.toString(), lawyer.email, "lawyer");
+      return res.json({
+        success: true,
+        requiresMFA: true,
+        mfaToken,
+        message: "Verification code sent to your email.",
+      });
+    }
+
+    // Fallback if MFA disabled - issue token directly
+    const token = jwt.sign({ id: lawyer._id, role: "lawyer" }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    res.json({ success: true, token });
 
   } catch (error) {
     console.log('Login error:', error);
@@ -227,17 +246,7 @@ const updateLawyerProfile = async (req, res) => {
 
     // Handle text fields
     if (req.body.name) updateData.name = req.body.name;
-    
-    if (req.body.email) {
-  if (typeof req.body.email !== 'string') {
-    return res.json({ success: false, message: 'Invalid email format' });
-  }
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(req.body.email)) {
-    return res.json({ success: false, message: 'Invalid email format' });
-  }
-  updateData.email = req.body.email;
-}
+    if (req.body.email) updateData.email = req.body.email;
     if (req.body.phone) updateData.phone = req.body.phone;
     if (req.body.office_phone) updateData.office_phone = req.body.office_phone;
     if (req.body.gender) updateData.gender = req.body.gender;
@@ -376,8 +385,9 @@ const changePassword = async (req, res) => {
       return res.json({ success: false, message: 'Current password is incorrect' });
     }
 
-    if (newPassword.length < 6) {
-      return res.json({ success: false, message: 'New password must be at least 6 characters' });
+    const pwCheck = validatePassword(newPassword);
+    if (!pwCheck.isValid) {
+      return res.json({ success: false, message: pwCheck.message });
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
@@ -470,6 +480,29 @@ const updateOnlineLink = async (req, res) => {
 };
 
 
+// API to toggle MFA on/off for lawyer
+const toggleMFA = async (req, res) => {
+  try {
+    const { lawyerId } = req.body;
+    const lawyer = await lawyerModel.findById(lawyerId);
+    if (!lawyer) {
+      return res.json({ success: false, message: "Lawyer not found" });
+    }
+
+    const newMfaStatus = !lawyer.mfaEnabled;
+    await lawyerModel.findByIdAndUpdate(lawyerId, { mfaEnabled: newMfaStatus });
+
+    res.json({
+      success: true,
+      mfaEnabled: newMfaStatus,
+      message: `Two-factor authentication ${newMfaStatus ? "enabled" : "disabled"} successfully.`,
+    });
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
 export {
   changeAvailability,
   lawyerList,
@@ -482,5 +515,6 @@ export {
   updateLawyerProfile,
   changePassword,
   sendEmailToAdmin,
-  updateOnlineLink
+  updateOnlineLink,
+  toggleMFA
 };
