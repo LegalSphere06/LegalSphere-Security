@@ -5,6 +5,10 @@ import { sanitizeInput } from '../utils/sanitize';
 import { toast } from 'react-toastify';
 
 const RegisterLawyer = () => {
+    // Password validation configuration
+    const PASSWORD_MIN_LENGTH = 8;
+    const PASSWORD_VALIDATION_MESSAGE = `Password must be at least ${PASSWORD_MIN_LENGTH} characters`;
+
     // OTP state variables
     const [otpSent, setOtpSent] = useState(false);
     const [otpVerified, setOtpVerified] = useState(false);
@@ -131,8 +135,8 @@ const RegisterLawyer = () => {
         if (formData.application_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.application_email)) {
             errors.email = 'Invalid email format';
         }
-        if (formData.application_password && formData.application_password.length < 8) {
-            errors.password = 'Password must be at least 8 characters';
+        if (formData.application_password && formData.application_password.length < PASSWORD_MIN_LENGTH) {
+            errors.password = PASSWORD_VALIDATION_MESSAGE;
         }
         if (passwordConfirm && formData.application_password !== passwordConfirm) {
             errors.passwordConfirm = 'Passwords do not match';
@@ -270,8 +274,8 @@ const RegisterLawyer = () => {
             }
         }
 
-        if (!formData.application_password || formData.application_password.length < 8) {
-            toast.error('Password must be at least 8 characters');
+        if (!formData.application_password || formData.application_password.length < PASSWORD_MIN_LENGTH) {
+            toast.error(PASSWORD_VALIDATION_MESSAGE);
             return false;
         }
 
