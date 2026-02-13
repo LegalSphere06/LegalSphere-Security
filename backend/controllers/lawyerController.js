@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import appointmentModel from "../models/appointmentModel.js";
 import fs from 'fs';
 import path from 'path';
+import { validatePassword } from "../utils/passwordValidator.js";
 
 const changeAvailability = async (req, res) => {
   try {
@@ -27,7 +28,7 @@ const lawyerList = async (req, res) => {
     // Add full URL to image paths
     const lawyersWithFullImageUrls = lawyers.map(lawyer => {
       const lawyerObj = lawyer.toObject();
-      if (lawyerObj.image && lawyerObj.image.startsWith('/uploads/')) {
+      if (lawyerObj.image?.startsWith('/uploads/')) {
         // Prepend the backend URL to the image path
         const backendUrl = `${req.protocol}://${req.get('host')}`;
         lawyerObj.image = `${backendUrl}${lawyerObj.image}`;
@@ -61,32 +62,47 @@ if (!emailRegex.test(email)) {
       return res.json({ success: false, message: 'Email and password are required' });
     }
 
-    console.log('Login attempt for email:', email);
-
     const lawyer = await lawyerModel.findOne({ email });
 
     if (!lawyer) {
-      console.log('No lawyer found with email:', email);
       return res.json({ success: false, message: 'Invalid Credentials' });
     }
 
-    console.log('Lawyer found:', lawyer.name);
-
     if (!lawyer.password) {
-      console.log('Lawyer account found but no password set');
       return res.json({ success: false, message: 'Account not fully set up. Please contact admin.' });
+    }
+
+     // Check account lockout
+    if (lawyer.accountLockedUntil && lawyer.accountLockedUntil > new Date()) {
+      const secondsLeft = Math.ceil((lawyer.accountLockedUntil - Date.now()) / 1000);
+      return res.json({
+        success: false,
+        message: `Account is locked. Try again in ${secondsLeft} second(s).`,
+      });
     }
 
     const isMatch = await bcrypt.compare(password, lawyer.password);
 
-    if (isMatch) {
-      const token = jwt.sign({ id: lawyer._id }, process.env.JWT_SECRET);
-      console.log('Login successful for:', lawyer.name);
-      res.json({ success: true, token });
-    } else {
-      console.log('Password mismatch for:', lawyer.name);
+    
+    if (!isMatch) {
+      // Increment failed attempts, lock after 3 failures
+      const attempts = (lawyer.failedLoginAttempts || 0) + 1;
+      const update = { failedLoginAttempts: attempts };
+      if (attempts >= 3) {
+        update.accountLockedUntil = new Date(Date.now() + 30 * 1000); // 30 sec lock (increase for production)
+        update.failedLoginAttempts = 0;
+      }
+      await lawyerModel.findByIdAndUpdate(lawyer._id, update);
       return res.json({ success: false, message: 'Invalid Credentials' });
     }
+    // Reset failed attempts on successful password
+    await lawyerModel.findByIdAndUpdate(lawyer._id, {
+      failedLoginAttempts: 0,
+      accountLockedUntil: null,
+    });
+
+    const token = jwt.sign({ id: lawyer._id, role: "lawyer" }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    res.json({ success: true, token });
 
   } catch (error) {
     console.log('Login error:', error);
@@ -376,8 +392,9 @@ const changePassword = async (req, res) => {
       return res.json({ success: false, message: 'Current password is incorrect' });
     }
 
-    if (newPassword.length < 6) {
-      return res.json({ success: false, message: 'New password must be at least 6 characters' });
+    const pwCheck = validatePassword(newPassword);
+    if (!pwCheck.isValid) {
+      return res.json({ success: false, message: pwCheck.message });
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
