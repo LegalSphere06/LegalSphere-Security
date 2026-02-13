@@ -49,7 +49,10 @@ const addLawyer = async (req, res) => {
 
     const imageFile = req.file;
 
-    console.log("Image file:", imageFile);
+    // Type check - prevent NoSQL injection
+    if (typeof name !== 'string' || typeof email !== 'string' || typeof password !== 'string') {
+      return res.json({ success: false, message: 'Invalid input format' });
+    }
 
     // checking for required lawyer data only
     if (
@@ -81,7 +84,7 @@ const addLawyer = async (req, res) => {
     }
 
     // Check if lawyer with this email already exists
-    const existingLawyer = await lawyerModel.findOne({ email });
+    const existingLawyer = await lawyerModel.findOne({ email: email.toLowerCase().trim() });
     if (existingLawyer) {
       return res.json({
         success: false,
@@ -106,15 +109,8 @@ const addLawyer = async (req, res) => {
     // Upload Image to cloudinary if image exists
     if (imageFile) {
       try {
-        console.log("Processing image upload...");
-        console.log("Image buffer length:", imageFile.buffer.length);
-        console.log("Image mimetype:", imageFile.mimetype);
-
-        // Convert buffer to base64 string for Cloudinary
         const b64 = Buffer.from(imageFile.buffer).toString("base64");
         const dataURI = "data:" + imageFile.mimetype + ";base64," + b64;
-
-        console.log("DataURI created, length:", dataURI.length);
 
         const imageUpload = await cloudinary.uploader.upload(dataURI, {
           resource_type: "image",
@@ -123,19 +119,15 @@ const addLawyer = async (req, res) => {
         });
 
         imageUrl = imageUpload.secure_url;
-        console.log("Image uploaded successfully:", imageUrl);
 
       } catch (uploadError) {
-        console.log("Image upload error:", uploadError);
         return res.json({ success: false, message: "Image upload failed: " + uploadError.message });
       }
-    } else {
-      console.log("No image file provided - proceeding without image");
     }
 
     const lawyerData = {
       name,
-      email,
+      email: email.toLowerCase().trim(),
       image: imageUrl,
       password: hashedPassword,
       phone,
@@ -168,12 +160,8 @@ const addLawyer = async (req, res) => {
     try {
       const newLawyer = new lawyerModel(lawyerData);
       await newLawyer.save();
-      console.log("Lawyer saved successfully");
       res.json({ success: true, message: "Lawyer Added" });
     } catch (saveError) {
-      console.log("Database save error:", saveError);
-
-      // Handle specific MongoDB errors
       if (saveError.code === 11000) {
         const field = Object.keys(saveError.keyValue)[0];
         const value = saveError.keyValue[field];
@@ -182,7 +170,6 @@ const addLawyer = async (req, res) => {
           message: `A lawyer with this ${field} (${value}) already exists`
         });
       }
-
       return res.json({
         success: false,
         message: "Failed to save lawyer: " + saveError.message
@@ -190,7 +177,6 @@ const addLawyer = async (req, res) => {
     }
 
   } catch (error) {
-    console.log("Error:", error);
     res.json({ success: false, message: error.message });
   }
 };
@@ -200,11 +186,15 @@ const loginAdmin = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    // Type check - prevent NoSQL injection
+    if (typeof email !== 'string' || typeof password !== 'string') {
+      return res.json({ success: false, message: 'Invalid input format' });
+    }
+
     if (
       email === process.env.ADMIN_EMAIL &&
       password === process.env.ADMIN_PASSWORD
     ) {
-      // MFA always enabled for admin
       const mfaToken = await initiateMFA("admin", process.env.ADMIN_EMAIL, "admin");
       return res.json({
         success: true,
@@ -216,7 +206,6 @@ const loginAdmin = async (req, res) => {
       res.json({ success: false, message: "Invalid credentials" });
     }
   } catch (error) {
-    console.log("Error:", error);
     res.json({ success: false, message: error.message });
   }
 };
@@ -224,11 +213,9 @@ const loginAdmin = async (req, res) => {
 //API to get all lawyers list for admin panel
 const allLawyers = async (req, res) => {
   try {
-    //.sort() to show newest first
     const lawyers = await lawyerModel.find({}).select("-password").sort({ date: -1 });
     res.json({ success: true, lawyers });
   } catch (error) {
-    console.log("Error:", error);
     res.json({ success: false, message: error.message });
   }
 };
@@ -239,7 +226,6 @@ const appointmentsAdmin = async (req, res) => {
     const appointments = await appointmentModel.find({})
     res.json({ success: true, appointments })
   } catch (error) {
-    console.log("Error:", error);
     res.json({ success: false, message: error.message });
   }
 }
@@ -250,24 +236,18 @@ const appointmentCancel = async (req, res) => {
     const { appointmentId } = req.body
 
     const appointmentData = await appointmentModel.findById(appointmentId)
-
     await appointmentModel.findByIdAndUpdate(appointmentId, { cancelled: true })
 
-    //Releasing Lawyers slot
     const { lawyerId, slotDate, slotTime } = appointmentData
-
     const lawyerData = await lawyerModel.findById(lawyerId)
 
     let slots_booked = lawyerData.slots_booked
-
     slots_booked[slotDate] = slots_booked[slotDate].filter(e => e !== slotTime)
 
     await lawyerModel.findByIdAndUpdate(lawyerId, { slots_booked })
-
     res.json({ success: true, message: 'Appointment Cancelled' })
 
   } catch (error) {
-    console.log(error);
     res.json({ success: false, message: error.message });
   }
 }
@@ -289,7 +269,6 @@ const adminDashboard = async (req, res) => {
     res.json({ success: true, dashData })
 
   } catch (error) {
-    console.log(error);
     res.json({ success: false, message: error.message });
   }
 }
@@ -300,7 +279,6 @@ const getApplications = async (req, res) => {
     const applications = await applicationModel.find().sort({ application_date: -1 });
     res.json({ success: true, applications });
   } catch (error) {
-    console.error("Error fetching applications:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -317,7 +295,6 @@ const getLawyer = async (req, res) => {
 
     res.json({ success: true, lawyer });
   } catch (error) {
-    console.log("Error:", error);
     res.json({ success: false, message: error.message });
   }
 };
@@ -325,8 +302,6 @@ const getLawyer = async (req, res) => {
 // API to update lawyer details (now includes password updates)
 const updateLawyer = async (req, res) => {
   try {
-    console.log("Request received at updateLawyer controller");
-
     const { lawyerId } = req.params;
     const {
       name,
@@ -357,6 +332,11 @@ const updateLawyer = async (req, res) => {
 
     const imageFile = req.file;
 
+    // Type check - prevent NoSQL injection
+    if (typeof email !== 'string' || typeof name !== 'string') {
+      return res.json({ success: false, message: 'Invalid input format' });
+    }
+
     // Find existing lawyer
     const existingLawyer = await lawyerModel.findById(lawyerId);
     if (!existingLawyer) {
@@ -365,7 +345,10 @@ const updateLawyer = async (req, res) => {
 
     // Check if email is being changed and if new email already exists
     if (email !== existingLawyer.email) {
-      const emailExists = await lawyerModel.findOne({ email, _id: { $ne: lawyerId } });
+      const emailExists = await lawyerModel.findOne({ 
+        email: email.toLowerCase().trim(), 
+        _id: { $ne: lawyerId } 
+      });
       if (emailExists) {
         return res.json({
           success: false,
@@ -387,7 +370,6 @@ const updateLawyer = async (req, res) => {
 
       const salt = await bcrypt.genSalt(10);
       hashedPassword = await bcrypt.hash(password, salt);
-      console.log("New password hashed for lawyer:", name);
     }
 
     let imageUrl = existingLawyer.image;
@@ -395,7 +377,6 @@ const updateLawyer = async (req, res) => {
     // Upload new image if provided
     if (imageFile) {
       try {
-        console.log("Processing image upload for update...");
         const b64 = Buffer.from(imageFile.buffer).toString("base64");
         const dataURI = "data:" + imageFile.mimetype + ";base64," + b64;
 
@@ -406,17 +387,15 @@ const updateLawyer = async (req, res) => {
         });
 
         imageUrl = imageUpload.secure_url;
-        console.log("New image uploaded successfully:", imageUrl);
 
       } catch (uploadError) {
-        console.log("Image upload error:", uploadError);
         return res.json({ success: false, message: "Image upload failed: " + uploadError.message });
       }
     }
 
     const updateData = {
       name,
-      email,
+      email: email.toLowerCase().trim(),
       image: imageUrl,
       password: hashedPassword,
       phone,
@@ -443,11 +422,9 @@ const updateLawyer = async (req, res) => {
     };
 
     await lawyerModel.findByIdAndUpdate(lawyerId, updateData, { new: true });
-
     res.json({ success: true, message: "Lawyer updated successfully" });
 
   } catch (error) {
-    console.log("Error:", error);
     res.json({ success: false, message: error.message });
   }
 };
@@ -466,24 +443,18 @@ const resetLawyerPassword = async (req, res) => {
       return res.json({ success: false, message: pwCheck.message });
     }
 
-    // Check if lawyer exists
     const lawyer = await lawyerModel.findById(lawyerId);
     if (!lawyer) {
       return res.json({ success: false, message: "Lawyer not found" });
     }
 
-    // Hash the new password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-    // Update the lawyer's password
     await lawyerModel.findByIdAndUpdate(lawyerId, { password: hashedPassword });
-
-    console.log(`Password reset for lawyer: ${lawyer.name} (${lawyer.email})`);
     res.json({ success: true, message: "Password reset successfully" });
 
   } catch (error) {
-    console.log("Error:", error);
     res.json({ success: false, message: error.message });
   }
 };
@@ -494,7 +465,6 @@ const checkLawyerPassword = async (req, res) => {
     const { lawyerId } = req.params;
 
     const lawyer = await lawyerModel.findById(lawyerId).select('name email password');
-
     if (!lawyer) {
       return res.json({ success: false, message: "Lawyer not found" });
     }
@@ -507,7 +477,6 @@ const checkLawyerPassword = async (req, res) => {
     });
 
   } catch (error) {
-    console.log("Error:", error);
     res.json({ success: false, message: error.message });
   }
 };
@@ -517,19 +486,15 @@ const deleteLawyer = async (req, res) => {
   try {
     const { lawyerId } = req.params;
 
-    // Check if lawyer exists
     const lawyer = await lawyerModel.findById(lawyerId);
     if (!lawyer) {
       return res.json({ success: false, message: "Lawyer not found" });
     }
 
-    // Delete the lawyer
     await lawyerModel.findByIdAndDelete(lawyerId);
-
     res.json({ success: true, message: "Lawyer deleted successfully" });
 
   } catch (error) {
-    console.log("Error:", error);
     res.json({ success: false, message: error.message });
   }
 };
@@ -537,24 +502,15 @@ const deleteLawyer = async (req, res) => {
 // API to approve application and create lawyer account
 const approveApplication = async (req, res) => {
   try {
-    console.log("Approve application called with body:", req.body);
     const { applicationId } = req.body;
     
     if (!applicationId) {
-      return res.json({ 
-        success: false, 
-        message: "Application ID is required" 
-      });
+      return res.json({ success: false, message: "Application ID is required" });
     }
     
     const application = await applicationModel.findById(applicationId);
-    console.log("Found application:", application ? "Yes" : "No");
-    
     if (!application) {
-      return res.json({ 
-        success: false, 
-        message: "Application not found" 
-      });
+      return res.json({ success: false, message: "Application not found" });
     }
 
     const existingLawyer = await lawyerModel.findOne({
@@ -574,23 +530,16 @@ const approveApplication = async (req, res) => {
     if (!application.application_password || application.application_password.trim() === '') {
       return res.json({
         success: false,
-        message: "Application does not contain a password. Please ensure the applicant has set a password."
+        message: "Application does not contain a password."
       });
     }
 
     const pwCheck = validatePassword(application.application_password);
     if (!pwCheck.isValid) {
-      return res.json({
-        success: false,
-        message: pwCheck.message
-      });
+      return res.json({ success: false, message: pwCheck.message });
     }
 
-    // Store the plain password before hashing for email
-    const plainPassword = application.application_password;
-    
-    console.log("Using password from application for:", application.application_email);
-    
+    // ✅ R6 Fix - removed plainPassword variable
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(application.application_password, salt);
 
@@ -626,26 +575,20 @@ const approveApplication = async (req, res) => {
       online_link: ""
     };
 
-    console.log("Creating lawyer with data:", { name: lawyerData.name, email: lawyerData.email });
-
     const newLawyer = new lawyerModel(lawyerData);
     await newLawyer.save();
-    
-    console.log("Lawyer created successfully with ID:", newLawyer._id);
 
-// Approve
-const emailSent = await sendApprovalEmail(
-    application.application_email,
-    application.application_name,
-    plainPassword
-);
+    // ✅ R11/R12 Fix - no plain password sent via email
+    const emailSent = await sendApprovalEmail(
+      application.application_email,
+      application.application_name
+    );
 
     if (!emailSent) {
       console.log("Warning: Welcome email could not be sent, but lawyer account was created");
     }
 
     await applicationModel.findByIdAndDelete(applicationId);
-    console.log("Application deleted");
 
     res.json({ 
       success: true, 
@@ -657,67 +600,37 @@ const emailSent = await sendApprovalEmail(
     });
 
   } catch (error) {
-    console.error("Error approving application:", error);
-    res.json({ 
-      success: false, 
-      message: error.message || "Failed to approve application"
-    });
+    res.json({ success: false, message: error.message || "Failed to approve application" });
   }
 };
 
 // API to reject application
 const rejectApplication = async (req, res) => {
   try {
-    console.log("Reject application called with body:", req.body);
     const { applicationId } = req.body;
     
     if (!applicationId) {
-      return res.json({ 
-        success: false, 
-        message: "Application ID is required" 
-      });
+      return res.json({ success: false, message: "Application ID is required" });
     }
     
-    // Find the application first to get email for notification
     const application = await applicationModel.findById(applicationId);
-    
     if (!application) {
-      return res.json({ 
-        success: false, 
-        message: "Application not found" 
-      });
+      return res.json({ success: false, message: "Application not found" });
     }
 
-    // Call the rejection email function (if you create it)
     await sendRejectionEmail(
       application.application_email,
       application.application_name
     );
 
-    // Delete the application
     await applicationModel.findByIdAndDelete(applicationId);
-    console.log(`Application rejected and deleted for: ${application.application_email}`);
 
-    console.log("=================================");
-    console.log("APPLICATION REJECTED");
-    console.log("Applicant:", application.application_name);
-    console.log("Email:", application.application_email);
-    console.log("=================================");
-
-    res.json({ 
-      success: true, 
-      message: "Application rejected and removed from the system." 
-    });
+    res.json({ success: true, message: "Application rejected and removed from the system." });
 
   } catch (error) {
-    console.error("Error rejecting application:", error);
-    res.json({ 
-      success: false, 
-      message: error.message || "Failed to reject application"
-    });
+    res.json({ success: false, message: error.message || "Failed to reject application" });
   }
 };
-
 
 // API to send email to lawyers
 const sendEmailToLawyers = async (req, res) => {
@@ -732,7 +645,6 @@ const sendEmailToLawyers = async (req, res) => {
       return res.json({ success: false, message: "Subject and message are required" });
     }
 
-    // sendBulkEmail is already imported at the top
     const emailSent = await sendBulkEmail(recipientEmails, subject, message);
 
     if (emailSent) {
@@ -742,7 +654,6 @@ const sendEmailToLawyers = async (req, res) => {
     }
 
   } catch (error) {
-    console.error("Error sending emails:", error);
     res.json({ success: false, message: error.message || "Server error occurred while sending emails" });
   }
 };
