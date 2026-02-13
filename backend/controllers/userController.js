@@ -7,8 +7,13 @@ import lawyerModel from "../models/lawyerModel.js";
 import appointmentModel from "../models/appointmentModel.js";
 import razorpay from 'razorpay'
 
+
+//******************************************************************************************* */
 //No Razorpay signature verification
+
 import crypto from "node:crypto"
+//******************************************************************************************* */
+
 
 // API to register user
 
@@ -309,6 +314,10 @@ const verifyRazorpay = async (req, res) => {
     const orderInfo = await razorpayInstance.orders.fetch(razorpay_order_id)
 
     if (orderInfo.status === 'paid') {
+
+
+      //********************************************************************************* */
+      //Emplement on no authentication check on payment verification.
       // Verify the appointment belongs to the authenticated user
       const appointmentData = await appointmentModel.findById(orderInfo.receipt)
 
@@ -319,6 +328,8 @@ const verifyRazorpay = async (req, res) => {
       if (appointmentData.userId !== userId) {
         return res.json({ success: false, message: "Unauthorized - appointment does not belong to this user" })
       }
+//********************************************************************************* */
+
 
       await appointmentModel.findByIdAndUpdate(orderInfo.receipt, { payment: true })
       res.json({ success: true, message: "Payment Successful" })
