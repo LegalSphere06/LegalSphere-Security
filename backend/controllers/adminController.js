@@ -1,3 +1,4 @@
+import jwt from "jsonwebtoken";
 import {
   uploadImageToCloudinary,
   hashPassword,
@@ -7,7 +8,7 @@ import {
 } from '../utils/lawyerUtils.js';
 import lawyerModel from "../models/lawyerModel.js";
 import applicationModel from "../models/applicationModel.js";
-import { sendApprovalEmail, sendRejectionEmail, sendBulkEmail } from '../config/emailConfig.js';
+import { sendApprovalEmail, sendRejectionEmail } from '../config/emailConfig.js';
 import { validatePassword } from "../utils/passwordValidator.js";
 
 // API to add a new lawyer manually (by admin)
@@ -94,7 +95,7 @@ const loginAdmin = async (req, res) => {
     // Check against environment variables
     if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
       // Generate token (you'll need to implement JWT token generation)
-      const token = "admin_token_here"; // Replace with actual JWT token
+      const token = jwt.sign({ role: "admin", email }, process.env.JWT_SECRET, { expiresIn: "1d" });
       res.json({ success: true, token });
     } else {
       res.json({ success: false, message: "Invalid credentials" });

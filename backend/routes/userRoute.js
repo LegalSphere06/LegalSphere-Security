@@ -10,16 +10,19 @@ import {
   cancelAppointment,
   paymentRazorpay,
   verifyRazorpay,
-  getUsersForGIS
+  getUsersForGIS,
+  toggleMFA
 } from "../controllers/userController.js";
 import auth from "../middlewares/auth.js";
 import upload from "../middlewares/multer.js";
 import { authLimiter } from "../middlewares/rateLimiter.js";
+import { verifyMFA } from "../controllers/mfaController.js";
 
 const userRouter = express.Router();
 
 userRouter.post("/register", registerUser);
 userRouter.post("/login", authLimiter, loginUser);
+userRouter.post("/verify-mfa", authLimiter, verifyMFA);
 
 // ========================================
 // VALIDATION MIDDLEWARE
@@ -138,6 +141,7 @@ userRouter.get('/appointments', auth("user"), listAppointment);
 userRouter.post('/cancel-appointment', auth("user"), cancelAppointmentValidation, validate, cancelAppointment);
 userRouter.post('/payment-razorpay', auth("user"), paymentValidation, validate, paymentRazorpay);
 userRouter.post('/verifyRazorpay', auth("user"), verifyRazorpay);
+userRouter.post('/toggle-mfa', auth("user"), toggleMFA)
 
 userRouter.get('/gis-users', auth("admin"), getUsersForGIS);
 

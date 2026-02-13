@@ -4,11 +4,11 @@ import api from '../utils/api'
 import { sanitizeInput } from '../utils/sanitize'
 import { toast } from 'react-toastify'
 import { useNavigate } from 'react-router-dom'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, ShieldCheck, ArrowLeft } from 'lucide-react'
 
 const Login = () => {
 
-  const { backendUrl, token, setToken } = useContext(AppContext)
+  const { token, setToken } = useContext(AppContext)
   const navigate = useNavigate()
   const [state, setState] = useState('Sign Up')
 
@@ -19,6 +19,12 @@ const Login = () => {
 
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+
+    // MFA state
+  const [mfaStep, setMfaStep] = useState(false)
+  const [mfaToken, setMfaToken] = useState('')
+  const [otp, setOtp] = useState('')
+  const [mfaLoading, setMfaLoading] = useState(false)
 
   // Password policy checks
   const passwordChecks = {
@@ -54,7 +60,14 @@ const Login = () => {
         }
       } else {
         const { data } = await api.post('/api/user/login', { password, email: sanitizeInput(email) })
-        if (data.success) {
+        if (data.success && data.requiresMFA) {
+          // MFA required - show OTP input (don't store token yet)
+          setMfaToken(data.mfaToken)
+          setMfaStep(true)
+          toast.success(data.message)
+          // Don't store data.token here - it's undefined during MFA flow
+        } else if (data.success) {
+          // No MFA - store token directly
           localStorage.setItem('token', data.token)
           setToken(data.token)
         } else {
@@ -75,11 +88,119 @@ const Login = () => {
     }
   }
 
+  const onVerifyOTP = async (event) => {
+    event.preventDefault()
+    setMfaLoading(true)
+
+    try {
+      const { data } = await api.post('/api/user/verify-mfa', { mfaToken, otp })
+      if (data.success) {
+        localStorage.setItem('token', data.token)
+        setToken(data.token)
+        toast.success('Login successful')
+      } else {
+        toast.error(data.message)
+      }
+    } catch (error) {
+      if (error.response?.data?.message) {
+        toast.error(error.response.data.message)
+      } else {
+        toast.error(error.message)
+      }
+    } finally {
+      setMfaLoading(false)
+    }
+  }
+
+  const onResendOTP = async () => {
+    try {
+      const { data } = await api.post('/api/user/login', { password, email: sanitizeInput(email) })
+      if (data.success && data.requiresMFA) {
+        setMfaToken(data.mfaToken)
+        setOtp('')
+        toast.success('New verification code sent to your email')
+      } else {
+        toast.error(data.message || 'Failed to resend code')
+      }
+    } catch (error) {
+      if (error.response?.data?.message) {
+        toast.error(error.response.data.message)
+      } else {
+        toast.error(error.message)
+      }
+    }
+  }
+
+  const resetMFA = () => {
+    setMfaStep(false)
+    setMfaToken('')
+    setOtp('')
+  }
+
+
   useEffect(() => {
     if (token) {
       navigate('/')
     }
   }, [token])
+
+    // MFA verification screen
+  if (mfaStep) {
+    return (
+      <form onSubmit={onVerifyOTP} className='min-h-[80vh] flex items-center'>
+        <div className='flex flex-col gap-4 m-auto items-center p-8 min-w-[340px] bg-white sm:min-w-96 border rounded-xl text-zinc-600 text-sm shadow-lg'>
+          <ShieldCheck size={48} className='text-[#6A0610]' />
+          <p className='text-2xl font-semibold'>Verify Your Identity</p>
+          <p className='text-center text-zinc-500'>
+            We've sent a 6-digit verification code to<br />
+            <span className='font-medium text-zinc-700'>{email}</span>
+          </p>
+
+          <div className='w-full'>
+            <p className='mb-1'>Enter Verification Code</p>
+            <input
+              className='border border-zinc-300 rounded w-full p-3 mt-1 text-center text-lg tracking-widest font-mono'
+              type='text'
+              maxLength={6}
+              placeholder='000000'
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+              value={otp}
+              required
+              autoFocus
+            />
+          </div>
+
+          <button
+            type='submit'
+            disabled={otp.length !== 6 || mfaLoading}
+            style={{ background: 'linear-gradient(to right, #D00C1F, #6A0610)' }}
+            className='text-white w-full py-2.5 rounded-md text-base disabled:opacity-50'
+          >
+            {mfaLoading ? 'Verifying...' : 'Verify & Login'}
+          </button>
+
+          <div className='flex justify-between w-full text-xs'>
+            <button
+              type='button'
+              onClick={resetMFA}
+              className='text-zinc-500 hover:text-zinc-700 flex items-center gap-1'
+            >
+              <ArrowLeft size={14} /> Back to login
+            </button>
+            <button
+              type='button'
+              onClick={onResendOTP}
+              className='text-[#6A0610] hover:underline'
+            >
+              Resend code
+            </button>
+          </div>
+
+          <p className='text-xs text-zinc-400 text-center'>Code expires in 5 minutes</p>
+        </div>
+      </form>
+    )
+  }
 
   return (
     <form onSubmit={onSubmitHandler} className='min-h-[80vh] flex items-center'>

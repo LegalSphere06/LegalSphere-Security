@@ -1,14 +1,42 @@
 import React, { useContext, useState } from 'react';
+import axios from 'axios';
 import { AppContext } from '../context/AppContext';
 import { assets } from '../assets/assets';
 import api from '../utils/api';
 import { sanitizeInput } from '../utils/sanitize';
 import { toast } from 'react-toastify';
+import { ShieldCheck, ShieldOff } from 'lucide-react';
 
 const MyProfile = () => {
   const { userData, setUserData, token, backendUrl, loadUserProfileData } = useContext(AppContext);
   const [isEdit, setIsEdit] = useState(false);
   const [image, setImage] = useState(false);
+  const [mfaLoading, setMfaLoading] = useState(false);
+
+  const handleToggleMFA = async () => {
+    setMfaLoading(true);
+    try {
+      const { data } = await axios.post(
+        `${backendUrl}/api/user/toggle-mfa`,
+        {},
+        { headers: { token } }
+      );
+      if (data.success) {
+        setUserData((prev) => ({ ...prev, mfaEnabled: data.mfaEnabled }));
+        toast.success(data.message);
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setMfaLoading(false);
+    }
+  };
+
+  const getUserMFAButtonText = () => {
+    return userData.mfaEnabled ? "Disable 2FA" : "Enable 2FA";
+  };
 
   const updateUserProfileData = async () => {
     try {
@@ -179,6 +207,41 @@ const MyProfile = () => {
           ) : (
             <p className="text-gray-400">{userData.dob}</p>
           )}
+        </div>
+      </div>
+
+      {/* Security Settings - MFA Toggle */}
+      <div>
+        <h3 className="text-gray-500 font-semibold mb-2 underline">SECURITY SETTINGS</h3>
+        <div className="flex items-center justify-between bg-gray-50 border rounded-lg p-4">
+          <div className="flex items-center gap-3">
+            {userData.mfaEnabled ? (
+              <ShieldCheck size={24} className="text-green-600" />
+            ) : (
+              <ShieldOff size={24} className="text-gray-400" />
+            )}
+            <div>
+              <p className="font-medium text-gray-700">Two-Factor Authentication (2FA)</p>
+              <p className="text-xs text-gray-500">
+                {userData.mfaEnabled
+                  ? "A verification code will be sent to your email each time you login."
+                  : "Enable 2FA to add an extra layer of security to your account."}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleToggleMFA}
+            disabled={mfaLoading}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition disabled:opacity-50 ${
+              userData.mfaEnabled
+                ? "bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
+                : "bg-green-50 text-green-600 border border-green-200 hover:bg-green-100"
+            }`}
+          >
+            {mfaLoading
+              ? "Updating..."
+              : getUserMFAButtonText()}
+          </button>
         </div>
       </div>
 
