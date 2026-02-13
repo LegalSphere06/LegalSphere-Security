@@ -64,10 +64,10 @@ const loginLawyer = async (req, res) => {
 
     // Check account lockout
     if (lawyer.accountLockedUntil && lawyer.accountLockedUntil > new Date()) {
-      const minutesLeft = Math.ceil((lawyer.accountLockedUntil - Date.now()) / 60000);
+      const secondsLeft = Math.ceil((lawyer.accountLockedUntil - Date.now()) / 1000);
       return res.json({
         success: false,
-        message: `Account is locked. Try again in ${minutesLeft} minute(s).`,
+        message: `Account is locked. Try again in ${secondsLeft} second(s).`,
       });
     }
 
@@ -77,8 +77,8 @@ const loginLawyer = async (req, res) => {
       // Increment failed attempts, lock after 5 failures
       const attempts = (lawyer.failedLoginAttempts || 0) + 1;
       const update = { failedLoginAttempts: attempts };
-      if (attempts >= 5) {
-        update.accountLockedUntil = new Date(Date.now() + 30 * 60 * 1000); // 30 min lock
+      if (attempts >= 3) {
+        update.accountLockedUntil = new Date(Date.now() + 30 * 1000); // 30 sec lock (increase for production)
         update.failedLoginAttempts = 0;
       }
       await lawyerModel.findByIdAndUpdate(lawyer._id, update);
