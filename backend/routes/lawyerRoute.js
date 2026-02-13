@@ -8,11 +8,12 @@ import {
   lawyerList, 
   loginLawyer, 
   updateLawyerProfile, 
-  lawyerProfile
+  lawyerProfile,
+  sendEmailToAdmin,
+  updateOnlineLink
 } from "../controllers/lawyerController.js";
 import authLawyer from "../middlewares/authLawyer.js";
-import { sendEmailToAdmin } from "../controllers/lawyerController.js";
-import { updateOnlineLink } from '../controllers/lawyerController.js';
+import { authLimiter } from "../middlewares/rateLimiter.js";
 const lawyerRouter = express.Router();
 
 // Configure multer for image upload
@@ -29,7 +30,7 @@ const upload = multer({ storage: storage });
 
 // Routes
 lawyerRouter.get('/list', lawyerList);
-lawyerRouter.post('/login', loginLawyer);
+lawyerRouter.post('/login', authLimiter, loginLawyer);
 lawyerRouter.get('/appointments', authLawyer, appointmentsLawyer);
 lawyerRouter.post('/complete-appointment', authLawyer, appointmentComplete);
 lawyerRouter.post('/cancel-appointment', authLawyer, appointmentCancel);

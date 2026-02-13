@@ -8,6 +8,7 @@ import lawyerRouter from "./routes/lawyerRoute.js";
 import userRouter from "./routes/userRoute.js";
 import applicationRouter from "./routes/applicationRoute.js";
 import mongoose from "mongoose";
+import { generalLimiter } from "./middlewares/rateLimiter.js";
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -90,6 +91,9 @@ app.use("/api/admin", function (req, res, next) {
   console.log(`Admin route hit: ${req.method} ${req.path}`);
   next();
 });
+
+// Rate limiting - apply to all API routes
+app.use("/api", generalLimiter);
 
 // api endpoints
 app.use("/api/admin", adminRouter);
