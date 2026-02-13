@@ -974,6 +974,77 @@ const RegisterLawyer = () => {
         </div>
     );
 
+    // Helper function to render OTP verification section based on state
+    const renderOtpSection = () => {
+        // Case 1: OTP not sent yet - show send button
+        if (!otpSent) {
+            return (
+                <div>
+                    <p className="text-sm text-blue-700 mb-4">
+                        Please verify your email address before submitting the application.
+                    </p>
+                    <button
+                        type="button"
+                        onClick={handleSendOTP}
+                        disabled={isSendingOTP}
+                        className="w-full px-6 py-3 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isSendingOTP ? 'Sending OTP...' : 'Send OTP to Email'}
+                    </button>
+                </div>
+            );
+        }
+
+        // Case 2: OTP verified successfully - show success message
+        if (otpVerified) {
+            return (
+                <div className="text-center">
+                    <p className="text-green-700 font-medium mb-2">✓ Email Verified Successfully!</p>
+                    <p className="text-sm text-green-600">You can now submit your application.</p>
+                </div>
+            );
+        }
+
+        // Case 3: OTP sent but not verified - show verification input
+        return (
+            <div className="space-y-4">
+                <p className="text-sm text-blue-700">
+                    Enter the 6-digit code sent to <strong>{formData.application_email}</strong>
+                </p>
+                <label htmlFor="otp-input" className="sr-only">Enter OTP</label>
+                <input
+                    id="otp-input"
+                    type="text"
+                    maxLength={6}
+                    value={otpValue}
+                    onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, ''))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-md text-center text-2xl tracking-widest font-mono"
+                    placeholder="000000"
+                />
+                <div className="flex gap-3">
+                    <button
+                        type="button"
+                        onClick={handleVerifyOTP}
+                        disabled={isVerifyingOTP || otpValue.length !== 6}
+                        className="flex-1 px-6 py-3 bg-green-600 text-white rounded-md font-medium hover:bg-green-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isVerifyingOTP ? 'Verifying...' : 'Verify OTP'}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setOtpSent(false);
+                            setOtpValue('');
+                        }}
+                        className="px-6 py-3 bg-gray-500 text-white rounded-md font-medium hover:bg-gray-600 transition-all duration-200"
+                    >
+                        Resend OTP
+                    </button>
+                </div>
+            </div>
+        );
+    };
+
     const renderReview = () => (
         <div className="space-y-6">
             <h2 className="text-2xl font-semibold text-gray-900 mb-6">Review & Submit</h2>
@@ -1033,64 +1104,7 @@ const RegisterLawyer = () => {
             {/* OTP Verification Section */}
             <div className="mt-6 border border-blue-200 rounded-lg p-6 bg-blue-50">
                 <h4 className="font-medium text-blue-800 mb-4">Email Verification Required</h4>
-
-                {!otpSent ? (
-                    <div>
-                        <p className="text-sm text-blue-700 mb-4">
-                            Please verify your email address before submitting the application.
-                        </p>
-                        <button
-                            type="button"
-                            onClick={handleSendOTP}
-                            disabled={isSendingOTP}
-                            className="w-full px-6 py-3 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {isSendingOTP ? 'Sending OTP...' : 'Send OTP to Email'}
-                        </button>
-                    </div>
-                ) : otpVerified ? (
-
-                    <div className="text-center">
-                        <p className="text-green-700 font-medium mb-2">✓ Email Verified Successfully!</p>
-                        <p className="text-sm text-green-600">You can now submit your application.</p>
-                    </div>
-                ) : (
-                    <div className="space-y-4">
-                        <p className="text-sm text-blue-700">
-                            Enter the 6-digit code sent to <strong>{formData.application_email}</strong>
-                        </p>
-                        <label htmlFor="otp-input" className="sr-only">Enter OTP</label>
-                        <input
-                            id="otp-input"
-                            type="text"
-                            maxLength={6}
-                            value={otpValue}
-                            onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, ''))}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-md text-center text-2xl tracking-widest font-mono"
-                            placeholder="000000"
-                        />
-                        <div className="flex gap-3">
-                            <button
-                                type="button"
-                                onClick={handleVerifyOTP}
-                                disabled={isVerifyingOTP || otpValue.length !== 6}
-                                className="flex-1 px-6 py-3 bg-green-600 text-white rounded-md font-medium hover:bg-green-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {isVerifyingOTP ? 'Verifying...' : 'Verify OTP'}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setOtpSent(false);
-                                    setOtpValue('');
-                                }}
-                                className="px-6 py-3 bg-gray-500 text-white rounded-md font-medium hover:bg-gray-600 transition-all duration-200"
-                            >
-                                Resend OTP
-                            </button>
-                        </div>
-                    </div>
-                )}
+                {renderOtpSection()}
             </div>
         </div>
     );
@@ -1160,7 +1174,7 @@ const RegisterLawyer = () => {
                                         : 'bg-gray-400 text-gray-200 cursor-not-allowed'
                                         } disabled:opacity-50`}
                                 >
-                                    {isSubmitting ? 'Submitting...' : !otpVerified ? 'Verify Email First' : 'Submit Application'}
+                                    {isSubmitting ? 'Submitting...' : otpVerified ? 'Submit Application' : 'Verify Email First'}
                                 </button>
                             )}
                         </div>
