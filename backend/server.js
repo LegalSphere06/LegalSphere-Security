@@ -12,6 +12,9 @@ import { generalLimiter } from "./middlewares/rateLimiter.js";
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import helmet from 'helmet';
+import hpp from 'hpp';
+import sanitizeInput from './middlewares/sanitizeInput.js';
 
 // Get __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -82,6 +85,16 @@ initializeApp();
 // middlewares
 app.use(express.json());
 app.use(cors());
+
+// --- Security Middleware ---
+
+// Set Security HTTP Headers
+app.use(helmet());
+app.use(sanitizeInput);
+// Prevent Parameter Pollution
+app.use(hpp());
+
+// ---------------------------
 
 // Serve static files from uploads directory
 app.use('/uploads', express.static(uploadsDir));
