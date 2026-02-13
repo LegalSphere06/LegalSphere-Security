@@ -1,7 +1,6 @@
 import {
   uploadImageToCloudinary,
   hashPassword,
-  validatePassword,
   buildLawyerData,
   checkLawyerExists,
   sanitizeMongoId, // ADD THIS

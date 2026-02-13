@@ -16,7 +16,6 @@ import authUser from "../middlewares/authUser.js";
 import authAdmin from "../middlewares/authAdmin.js";
 import upload from "../middlewares/multer.js";
 import { authLimiter } from "../middlewares/rateLimiter.js";
-import { getUsersForGIS } from "../controllers/userController.js";
 
 const userRouter = express.Router();
 
