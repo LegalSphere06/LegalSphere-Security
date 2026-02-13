@@ -1,10 +1,21 @@
 import mongoose from "mongoose";
+import validator from "validator";
 
 const lawyerSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
-    password: { type: String, required: true }, 
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+      validate: {
+        validator: (v) => validator.isEmail(v),
+        message: 'Invalid email format'
+      }
+    },
+    password: { type: String, required: true },
     phone: { type: String, required: true },
     office_phone: { type: String, required: false },
     image: { type: String, required: false, default: "" },
@@ -13,7 +24,12 @@ const lawyerSchema = new mongoose.Schema(
     dob: { type: String, default: "Not Selected" },
     degree: { type: [String], required: true },
     district: { type: String, required: true },
-    license_number: { type: String, required: true, unique: true },
+    license_number: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true
+    },
     bar_association: { type: String, required: true },
     experience: { type: String, required: true },
     languages_spoken: { type: [String], required: true },

@@ -44,11 +44,11 @@ const registerUser = async (req, res) => {
     const user = await newUser.save();
 
 
-//create a token
+    //create a token
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
     res.json({ success: true, token });
   } catch (error) {
-    console.log(error);
+    console.error('[registerUser] Registration failed:', error.message, error);
     res.json({ success: false, message: error.message });
   }
 };
@@ -71,7 +71,7 @@ const loginUser = async (req, res) => {
       res.json({ success: false, message: "Invalid credentials" });
     }
   } catch (error) {
-    console.log(error);
+    console.error('[loginUser] Login failed:', error.message, error);
     res.json({ success: false, message: error.message });
   }
 };
@@ -85,7 +85,7 @@ const getProfile = async (req, res) => {
 
     res.json({ success: true, userData });
   } catch (error) {
-    console.log(error);
+    console.error('[getProfile] Failed to fetch profile:', error.message, error);
     res.json({ success: false, message: error.message });
   }
 };
@@ -101,10 +101,18 @@ const updateProfile = async (req, res) => {
       return res.json({ success: false, message: "Data Missing" });
     }
 
+    let parsedAddress;
+    try {
+      parsedAddress = typeof address === 'string' ? JSON.parse(address) : address;
+    } catch (error) {
+      console.error('[updateProfile] Address parsing error:', error.message);
+      return res.json({ success: false, message: "Invalid address format" });
+    }
+
     await userModel.findByIdAndUpdate(userId, {
       name,
       phone,
-      address: JSON.parse(address),
+      address: parsedAddress,
       dob,
       gender,
     });
@@ -113,7 +121,7 @@ const updateProfile = async (req, res) => {
       // Upload image buffer to cloudinary (for memoryStorage)
       const b64 = Buffer.from(imageFile.buffer).toString("base64");
       const dataURI = `data:${imageFile.mimetype};base64,${b64}`;
-      
+
       const imageUpload = await cloudinary.uploader.upload(dataURI, {
         resource_type: "image",
       });
@@ -124,14 +132,14 @@ const updateProfile = async (req, res) => {
 
     res.json({ success: true, message: "Profile Updated" });
   } catch (error) {
-    console.log(error);
+    console.error('[updateProfile] Profile update failed:', error.message, error);
     res.json({ success: false, message: error.message });
   }
 };//API to book appointment
 
 const bookAppointment = async (req, res) => {
   try {
-    const { userId, lawyerId, slotDate, slotTime, consultationType } = req.body  // ADD consultationType here
+    const { userId, lawyerId, slotDate, slotTime, consultationType } = req.body
 
     const lawyerData = await lawyerModel.findById(lawyerId).select('-password')
 
@@ -144,49 +152,45 @@ const bookAppointment = async (req, res) => {
     if (!lawyerData.available) {
       return res.json({ success: false, message: 'Lawyer not available' })
     }
-    
-    let slots_booked = lawyerData.slots_booked
 
-    // Checking for slots availability
-    if (slots_booked[slotDate]) {
-      if (slots_booked[slotDate].includes(slotTime)) {
-        return res.json({ success: false, message: 'Slot not available' })
-      } else {
-        slots_booked[slotDate].push(slotTime)
-      }
+    let slots_booked = lawyerData.slots_booked;
 
-    } else {
-      slots_booked[slotDate] = []
-      slots_booked[slotDate].push(slotTime)
+    // Check availability using optional chaining
+    if (slots_booked[slotDate]?.includes(slotTime)) {
+      return res.json({ success: false, message: 'Slot not available' });
     }
 
-    const userData = await userModel.findById(userId).select('-password')
+    const userData = await userModel.findById(userId).select('-password');
 
-    delete lawyerData.slots_booked
+    // Create a copy of lawyerData without slots_booked for the appointment record
+    const lawyerDataForAppointment = lawyerData.toObject();
+    delete lawyerDataForAppointment.slots_booked;
 
     const appointmentData = {
       userId,
       lawyerId,
       userData,
-      lawyerData,
+      lawyerData: lawyerDataForAppointment,
       amount: lawyerData.fees,
       slotTime,
       slotDate,
-      consultationType,  // ADD this line
+      consultationType,
       date: Date.now()
-    }
+    };
 
-    const newAppointment = new appointmentModel(appointmentData)
-    await newAppointment.save()
+    const newAppointment = new appointmentModel(appointmentData);
+    await newAppointment.save();
 
-    //Save new slots data in lawyerData
+    // Atomic update to add slot
+    // $addToSet ensures no duplicates even if race condition passes the first check
+    await lawyerModel.findByIdAndUpdate(lawyerId, {
+      $addToSet: { [`slots_booked.${slotDate}`]: slotTime }
+    });
 
-    await lawyerModel.findByIdAndUpdate(lawyerId, { slots_booked })
-
-    res.json({ success: true, message: 'Appointment Booked' })
+    res.json({ success: true, message: 'Appointment Booked' });
 
   } catch (error) {
-    console.log(error);
+    console.error('[bookAppointment] Booking failed:', error.message, error);
     res.json({ success: false, message: error.message });
   }
 }
@@ -202,7 +206,7 @@ const listAppointment = async (req, res) => {
     res.json({ success: true, appointments })
 
   } catch (error) {
-    console.log(error);
+    console.error('[listAppointment] Failed to fetch appointments:', error.message, error);
     res.json({ success: false, message: error.message });
   }
 }
@@ -239,7 +243,7 @@ const cancelAppointment = async (req, res) => {
 
 
   } catch (error) {
-    console.log(error);
+    console.error('[cancelAppointment] Cancellation failed:', error.message, error);
     res.json({ success: false, message: error.message });
   }
 }
@@ -275,7 +279,7 @@ const paymentRazorpay = async (req, res) => {
     res.json({ success: true, order })
 
   } catch (error) {
-    console.log(error);
+    console.error('[paymentRazorpay] Payment creation failed:', error.message, error);
     res.json({ success: false, message: error.message });
   }
 
@@ -315,7 +319,7 @@ const verifyRazorpay = async (req, res) => {
       res.json({ success: false, message: "Payment Failed" })
     }
   } catch (error) {
-    console.log(error);
+    console.error('[verifyRazorpay] Payment verification failed:', error.message, error);
     res.json({ success: false, message: error.message });
   }
 }
@@ -330,9 +334,9 @@ const getUsersForGIS = async (req, res) => {
 
     res.json({ success: true, users });
   } catch (error) {
-    console.log(error);
+    console.error('[getUsersForGIS] Failed to fetch GIS users:', error.message, error);
     res.json({ success: false, message: error.message });
   }
 };
 
-export { registerUser, loginUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment, paymentRazorpay, verifyRazorpay, getUsersForGIS  };
+export { registerUser, loginUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment, paymentRazorpay, verifyRazorpay, getUsersForGIS };

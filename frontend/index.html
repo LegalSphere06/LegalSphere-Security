@@ -3,7 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/src/assets/logo.png" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Content Security Policy - XSS Prevention (Risk R1) -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self';
+                   script-src 'self' https://checkout.razorpay.com https://js.arcgis.com;
+                   style-src 'self' 'unsafe-inline' https://js.arcgis.com;
+                   img-src 'self' data: blob: https:;
+                   connect-src 'self' http://localhost:4000 https://*.razorpay.com https://*.arcgis.com;
+                   font-src 'self' https://js.arcgis.com;
+                   frame-src https://checkout.razorpay.com https://api.razorpay.com;"
+    />
     <title>MML</title>
   </head>
   <body>
