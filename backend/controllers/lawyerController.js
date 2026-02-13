@@ -47,6 +47,16 @@ const lawyerList = async (req, res) => {
 const loginLawyer = async (req, res) => {
   try {
     const { email, password } = req.body;
+    // Sanitize inputs - prevent NoSQL injection----start
+if (typeof email !== 'string' || typeof password !== 'string') {
+  return res.json({ success: false, message: 'Invalid input format' });
+}
+
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+if (!emailRegex.test(email)) {
+  return res.json({ success: false, message: 'Invalid email format' });
+}
+    // Sanitize inputs - prevent NoSQL injection----end
 
     if (!email || !password) {
       return res.json({ success: false, message: 'Email and password are required' });
@@ -227,7 +237,17 @@ const updateLawyerProfile = async (req, res) => {
 
     // Handle text fields
     if (req.body.name) updateData.name = req.body.name;
-    if (req.body.email) updateData.email = req.body.email;
+    
+    if (req.body.email) {
+  if (typeof req.body.email !== 'string') {
+    return res.json({ success: false, message: 'Invalid email format' });
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(req.body.email)) {
+    return res.json({ success: false, message: 'Invalid email format' });
+  }
+  updateData.email = req.body.email;
+}
     if (req.body.phone) updateData.phone = req.body.phone;
     if (req.body.office_phone) updateData.office_phone = req.body.office_phone;
     if (req.body.gender) updateData.gender = req.body.gender;
