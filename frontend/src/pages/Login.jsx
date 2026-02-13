@@ -62,7 +62,16 @@ const Login = () => {
         }
       }
     } catch (error) {
-      toast.error(error.message)
+      // Handle rate limiting and other HTTP errors
+      if (error.response?.status === 429) {
+        toast.error('Too many login attempts. Please try again in a few minutes.')
+      } else if (error.response?.data?.message) {
+        toast.error(error.response.data.message)
+      } else if (error.message) {
+        toast.error(error.message)
+      } else {
+        toast.error('An error occurred. Please try again.')
+      }
     }
   }
 

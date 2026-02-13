@@ -12,8 +12,7 @@ import {
   verifyRazorpay,
   getUsersForGIS
 } from "../controllers/userController.js";
-import authUser from "../middlewares/authUser.js";
-import authAdmin from "../middlewares/authAdmin.js";
+import auth from "../middlewares/auth.js";
 import upload from "../middlewares/multer.js";
 import { authLimiter } from "../middlewares/rateLimiter.js";
 
@@ -124,22 +123,22 @@ const paymentValidation = [
 userRouter.post("/register", registerValidation, validate, registerUser);
 userRouter.post("/login", loginValidation, validate, loginUser);
 
-userRouter.get("/get-profile", authUser, getProfile);
+userRouter.get("/get-profile", auth("user"), getProfile);
 userRouter.post(
   "/update-profile",
   upload.single("image"),
-  authUser,
+  auth("user"),
   updateProfileValidation,
   validate,
   updateProfile
 );
 
-userRouter.post('/book-appointment', authUser, bookAppointmentValidation, validate, bookAppointment);
-userRouter.get('/appointments', authUser, listAppointment);
-userRouter.post('/cancel-appointment', authUser, cancelAppointmentValidation, validate, cancelAppointment);
-userRouter.post('/payment-razorpay', authUser, paymentValidation, validate, paymentRazorpay);
-userRouter.post('/verifyRazorpay', authUser, verifyRazorpay);
+userRouter.post('/book-appointment', auth("user"), bookAppointmentValidation, validate, bookAppointment);
+userRouter.get('/appointments', auth("user"), listAppointment);
+userRouter.post('/cancel-appointment', auth("user"), cancelAppointmentValidation, validate, cancelAppointment);
+userRouter.post('/payment-razorpay', auth("user"), paymentValidation, validate, paymentRazorpay);
+userRouter.post('/verifyRazorpay', auth("user"), verifyRazorpay);
 
-userRouter.get('/gis-users', authAdmin, getUsersForGIS);
+userRouter.get('/gis-users', auth("admin"), getUsersForGIS);
 
 export default userRouter;

@@ -1,18 +1,18 @@
 import express from "express";
 import multer from "multer";
-import { 
-  appointmentCancel, 
-  appointmentComplete, 
-  appointmentsLawyer, 
-  lawyerDashboard, 
-  lawyerList, 
-  loginLawyer, 
-  updateLawyerProfile, 
+import {
+  appointmentCancel,
+  appointmentComplete,
+  appointmentsLawyer,
+  lawyerDashboard,
+  lawyerList,
+  loginLawyer,
+  updateLawyerProfile,
   lawyerProfile,
   sendEmailToAdmin,
   updateOnlineLink
 } from "../controllers/lawyerController.js";
-import authLawyer from "../middlewares/authLawyer.js";
+import auth from "../middlewares/auth.js";
 import { authLimiter } from "../middlewares/rateLimiter.js";
 const lawyerRouter = express.Router();
 
@@ -31,13 +31,13 @@ const upload = multer({ storage: storage });
 // Routes
 lawyerRouter.get('/list', lawyerList);
 lawyerRouter.post('/login', authLimiter, loginLawyer);
-lawyerRouter.get('/appointments', authLawyer, appointmentsLawyer);
-lawyerRouter.post('/complete-appointment', authLawyer, appointmentComplete);
-lawyerRouter.post('/cancel-appointment', authLawyer, appointmentCancel);
-lawyerRouter.get('/dashboard', authLawyer, lawyerDashboard);
-lawyerRouter.get('/profile', authLawyer, lawyerProfile);
-lawyerRouter.post('/update-profile', authLawyer, upload.single('image'), updateLawyerProfile);
-lawyerRouter.post('/send-email-to-admin', authLawyer, sendEmailToAdmin);
-lawyerRouter.post('/update-online-link', authLawyer, updateOnlineLink);
+lawyerRouter.get('/appointments', auth("lawyer"), appointmentsLawyer);
+lawyerRouter.post('/complete-appointment', auth("lawyer"), appointmentComplete);
+lawyerRouter.post('/cancel-appointment', auth("lawyer"), appointmentCancel);
+lawyerRouter.get('/dashboard', auth("lawyer"), lawyerDashboard);
+lawyerRouter.get('/profile', auth("lawyer"), lawyerProfile);
+lawyerRouter.post('/update-profile', auth("lawyer"), upload.single('image'), updateLawyerProfile);
+lawyerRouter.post('/send-email-to-admin', auth("lawyer"), sendEmailToAdmin);
+lawyerRouter.post('/update-online-link', auth("lawyer"), updateOnlineLink);
 
 export default lawyerRouter;
