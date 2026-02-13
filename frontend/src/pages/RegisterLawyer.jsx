@@ -1048,7 +1048,13 @@ const RegisterLawyer = () => {
                             {isSendingOTP ? 'Sending OTP...' : 'Send OTP to Email'}
                         </button>
                     </div>
-                ) : !otpVerified ? (
+                ) : otpVerified ? (
+
+                    <div className="text-center">
+                        <p className="text-green-700 font-medium mb-2">✓ Email Verified Successfully!</p>
+                        <p className="text-sm text-green-600">You can now submit your application.</p>
+                    </div>
+                ) : (
                     <div className="space-y-4">
                         <p className="text-sm text-blue-700">
                             Enter the 6-digit code sent to <strong>{formData.application_email}</strong>
@@ -1083,11 +1089,6 @@ const RegisterLawyer = () => {
                                 Resend OTP
                             </button>
                         </div>
-                    </div>
-                ) : (
-                    <div className="text-center">
-                        <p className="text-green-700 font-medium mb-2">✓ Email Verified Successfully!</p>
-                        <p className="text-sm text-green-600">You can now submit your application.</p>
                     </div>
                 )}
             </div>
@@ -1154,9 +1155,9 @@ const RegisterLawyer = () => {
                                     type="button"
                                     onClick={handleSubmit}
                                     disabled={isSubmitting || !otpVerified}
-                                    className={`flex items-center px-6 py-2 rounded-md text-sm font-bold transition-all duration-200 ${!otpVerified
-                                        ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                                        : 'bg-green-600 text-white hover:bg-green-700'
+                                    className={`flex items-center px-6 py-2 rounded-md text-sm font-bold transition-all duration-200 ${otpVerified
+                                        ? 'bg-green-600 text-white hover:bg-green-700'
+                                        : 'bg-gray-400 text-gray-200 cursor-not-allowed'
                                         } disabled:opacity-50`}
                                 >
                                     {isSubmitting ? 'Submitting...' : !otpVerified ? 'Verify Email First' : 'Submit Application'}

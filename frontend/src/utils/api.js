@@ -95,10 +95,10 @@ api.interceptors.response.use(
       if (status === 401 || status === 403) {
         // Clear stale token
         localStorage.removeItem('token');
-        
+
         // Redirect to login page (only if not already there)
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login';
+        if (globalThis.location.pathname !== '/login') {
+          globalThis.location.href = '/login';
         }
       }
     }
