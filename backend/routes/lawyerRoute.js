@@ -1,19 +1,19 @@
 import express from "express";
 import multer from "multer";
-import { 
-  appointmentCancel, 
-  appointmentComplete, 
-  appointmentsLawyer, 
-  lawyerDashboard, 
-  lawyerList, 
-  loginLawyer, 
-  updateLawyerProfile, 
-  lawyerProfile,
-  sendEmailToAdmin,
-  updateOnlineLink
+import {
+  appointmentCancel,
+  appointmentComplete,
+  appointmentsLawyer,
+  lawyerDashboard,
+  lawyerList,
+  loginLawyer,
+  updateLawyerProfile,
+  lawyerProfile
 } from "../controllers/lawyerController.js";
 import authLawyer from "../middlewares/authLawyer.js";
 import { authLimiter } from "../middlewares/rateLimiter.js";
+import { sendEmailToAdmin } from "../controllers/lawyerController.js";
+import { updateOnlineLink } from '../controllers/lawyerController.js';
 const lawyerRouter = express.Router();
 
 // Configure multer for image upload

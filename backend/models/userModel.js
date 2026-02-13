@@ -16,6 +16,10 @@ const userSchema = new mongoose.Schema({
   phone: { type: String, default: "000 000 0000" },
   latitude: { type: Number, required: false },
   longitude: { type: Number, required: false },
+  // MFA and account security fields
+  mfaEnabled: { type: Boolean, default: true },
+  failedLoginAttempts: { type: Number, default: 0 },
+  accountLockedUntil: { type: Date, default: null },
 });
 
 const userModel = mongoose.models.user || mongoose.model("user", userSchema);

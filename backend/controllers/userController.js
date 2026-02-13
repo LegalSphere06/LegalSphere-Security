@@ -7,6 +7,7 @@ import lawyerModel from "../models/lawyerModel.js";
 import appointmentModel from "../models/appointmentModel.js";
 import razorpay from 'razorpay'
 import { validatePassword } from "../utils/passwordValidator.js";
+import { initiateMFA } from "../utils/mfaService.js";
 
 // API to register user
 
@@ -59,16 +60,52 @@ const loginUser = async (req, res) => {
     const { email, password } = req.body;
     const user = await userModel.findOne({ email });
     if (!user) {
-      return res.json({ success: false, message: "User does not exist" });
+      return res.json({ success: false, message: "Invalid credentials" });
     }
+
+    // Check account lockout
+    if (user.accountLockedUntil && user.accountLockedUntil > new Date()) {
+      const minutesLeft = Math.ceil((user.accountLockedUntil - Date.now()) / 60000);
+      return res.json({
+        success: false,
+        message: `Account is locked. Try again in ${minutesLeft} minute(s).`,
+      });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
 
-    if (isMatch) {
-      const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
-      res.json({ success: true, token });
-    } else {
-      res.json({ success: false, message: "Invalid credentials" });
+    if (!isMatch) {
+      // Increment failed attempts, lock after 5 failures
+      const attempts = (user.failedLoginAttempts || 0) + 1;
+      const update = { failedLoginAttempts: attempts };
+      if (attempts >= 5) {
+        update.accountLockedUntil = new Date(Date.now() + 30 * 60 * 1000); // 30 min lock
+        update.failedLoginAttempts = 0;
+      }
+      await userModel.findByIdAndUpdate(user._id, update);
+      return res.json({ success: false, message: "Invalid credentials" });
     }
+
+    // Reset failed attempts on successful password
+    await userModel.findByIdAndUpdate(user._id, {
+      failedLoginAttempts: 0,
+      accountLockedUntil: null,
+    });
+
+    // MFA: send OTP email and return mfaToken
+    if (user.mfaEnabled !== false) {
+      const mfaToken = await initiateMFA(user._id.toString(), user.email, "user");
+      return res.json({
+        success: true,
+        requiresMFA: true,
+        mfaToken,
+        message: "Verification code sent to your email.",
+      });
+    }
+
+    // Fallback if MFA disabled - issue token directly
+    const token = jwt.sign({ id: user._id, role: "user" }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    res.json({ success: true, token });
   } catch (error) {
     console.log(error);
     res.json({ success: false, message: error.message });
@@ -319,4 +356,27 @@ const getUsersForGIS = async (req, res) => {
   }
 };
 
-export { registerUser, loginUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment, paymentRazorpay, verifyRazorpay, getUsersForGIS  };
+// API to toggle MFA on/off for user
+const toggleMFA = async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const user = await userModel.findById(userId);
+    if (!user) {
+      return res.json({ success: false, message: "User not found" });
+    }
+
+    const newMfaStatus = !user.mfaEnabled;
+    await userModel.findByIdAndUpdate(userId, { mfaEnabled: newMfaStatus });
+
+    res.json({
+      success: true,
+      mfaEnabled: newMfaStatus,
+      message: `Two-factor authentication ${newMfaStatus ? "enabled" : "disabled"} successfully.`,
+    });
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+export { registerUser, loginUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment, paymentRazorpay, verifyRazorpay, getUsersForGIS, toggleMFA };

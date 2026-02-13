@@ -35,6 +35,10 @@ const lawyerSchema = new mongoose.Schema(
       enum: ["online", "onsite", "both"],
     },
     online_link: { type: String, required: false },
+    // MFA and account security fields
+    mfaEnabled: { type: Boolean, default: true },
+    failedLoginAttempts: { type: Number, default: 0 },
+    accountLockedUntil: { type: Date, default: null },
   },
   { minimize: false }
 );
