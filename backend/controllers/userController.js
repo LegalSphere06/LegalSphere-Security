@@ -7,6 +7,11 @@ import lawyerModel from "../models/lawyerModel.js";
 import appointmentModel from "../models/appointmentModel.js";
 import razorpay from 'razorpay'
 
+//***************************************************************** */
+//imported the new model
+// import paymentLogModel from '../models/paymentLogModel.js'
+//****************************************************************** */
+
 
 //******************************************************************************************* */
 //No Razorpay signature verification
@@ -249,10 +254,20 @@ const cancelAppointment = async (req, res) => {
   }
 }
 
-const razorpayInstance = new razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET
-})
+// Lazy initialization - only create Razorpay instance when keys are available
+let razorpayInstance = null;
+const getRazorpayInstance = () => {
+  if (!razorpayInstance) {
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+      throw new Error('Razorpay keys are not configured');
+    }
+    razorpayInstance = new razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET
+    })
+  }
+  return razorpayInstance;
+}
 
 //API to make payment of appointment using razorpay
 
@@ -269,13 +284,13 @@ const paymentRazorpay = async (req, res) => {
 
     // creating options for razorpay payment
     const options = {
-      amount: appointmentData.amount * 100, //remove 2 decimal points
+      amount: appointmentData.amount * 100,
       currency: process.env.CURRENCY,
       receipt: appointmentId,
     }
 
     // creation of an order
-    const order = await razorpayInstance.orders.create(options)
+    const order = await getRazorpayInstance().orders.create(options)
 
     res.json({ success: true, order })
 
@@ -283,9 +298,6 @@ const paymentRazorpay = async (req, res) => {
     console.log(error);
     res.json({ success: false, message: error.message });
   }
-
-
-
 
 }
 
@@ -311,13 +323,12 @@ const verifyRazorpay = async (req, res) => {
     }
 
     // Signature verified, now confirm order status
-    const orderInfo = await razorpayInstance.orders.fetch(razorpay_order_id)
+    const orderInfo = await getRazorpayInstance().orders.fetch(razorpay_order_id)
 
     if (orderInfo.status === 'paid') {
 
-
       //********************************************************************************* */
-      //Emplement on no authentication check on payment verification.
+      //Implement on no authentication check on payment verification.
       // Verify the appointment belongs to the authenticated user
       const appointmentData = await appointmentModel.findById(orderInfo.receipt)
 
@@ -328,8 +339,7 @@ const verifyRazorpay = async (req, res) => {
       if (appointmentData.userId !== userId) {
         return res.json({ success: false, message: "Unauthorized - appointment does not belong to this user" })
       }
-//********************************************************************************* */
-
+      //********************************************************************************* */
 
       await appointmentModel.findByIdAndUpdate(orderInfo.receipt, { payment: true })
       res.json({ success: true, message: "Payment Successful" })
