@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useState } from 'react'
 import { AppContext } from '../context/AppContext'
-import axios from 'axios'
+import api from '../utils/api'
+import { sanitizeInput } from '../utils/sanitize'
 import { toast } from 'react-toastify'
 import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
@@ -44,7 +45,7 @@ const Login = () => {
           toast.error('Passwords do not match')
           return
         }
-        const { data } = await axios.post(backendUrl + '/api/user/register', { name, password, email })
+        const { data } = await api.post('/api/user/register', { name: sanitizeInput(name), password, email: sanitizeInput(email) })
         if (data.success) {
           localStorage.setItem('token', data.token)
           setToken(data.token)
@@ -52,7 +53,7 @@ const Login = () => {
           toast.error(data.message)
         }
       } else {
-        const { data } = await axios.post(backendUrl + '/api/user/login', { password, email })
+        const { data } = await api.post('/api/user/login', { password, email: sanitizeInput(email) })
         if (data.success) {
           localStorage.setItem('token', data.token)
           setToken(data.token)

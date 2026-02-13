@@ -1,5 +1,5 @@
 import { createContext, useEffect, useState } from "react";
-import axios from 'axios'
+import api from '../utils/api'
 import { toast } from "react-toastify";
 
 export const AppContext = createContext()
@@ -16,7 +16,7 @@ const AppContextProvider = (props) => {
 
     const getLawyersData = async () => {
         try {
-            const { data } = await axios.get(backendUrl + '/api/lawyer/list')
+            const { data } = await api.get('/api/lawyer/list')
             if (data.success) {
                 setLawyers(data.lawyers)
             } else {
@@ -32,7 +32,7 @@ const AppContextProvider = (props) => {
 
     const loadUserProfileData = async () => {
         try {
-            const { data } = await axios.get(backendUrl + '/api/user/get-profile', { headers: { token } })
+            const { data } = await api.get('/api/user/get-profile')
             if (data.success) {
                 setUserData(data.userData)
             } else {

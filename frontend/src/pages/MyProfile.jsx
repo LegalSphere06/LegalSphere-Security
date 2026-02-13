@@ -1,7 +1,8 @@
 import React, { useContext, useState } from 'react';
 import { AppContext } from '../context/AppContext';
 import { assets } from '../assets/assets';
-import axios from 'axios';
+import api from '../utils/api';
+import { sanitizeInput } from '../utils/sanitize';
 import { toast } from 'react-toastify';
 
 const MyProfile = () => {
@@ -12,22 +13,24 @@ const MyProfile = () => {
   const updateUserProfileData = async () => {
     try {
       const formData = new FormData();
-      formData.append('name', userData.name);
-      formData.append('phone', userData.phone);
-      formData.append('address', JSON.stringify(userData.address));
+      formData.append('name', sanitizeInput(userData.name));
+      formData.append('phone', sanitizeInput(userData.phone));
+      formData.append('address', JSON.stringify({
+        line1: sanitizeInput(userData.address.line1 || ''),
+        line2: sanitizeInput(userData.address.line2 || '')
+      }));
       formData.append('gender', userData.gender);
       formData.append('dob', userData.dob);
-      
+
       if (image) {
         formData.append('image', image);
       }
 
-      const { data } = await axios.post(
-        `${backendUrl}/api/user/update-profile`, 
-        formData, 
+      const { data } = await api.post(
+        '/api/user/update-profile',
+        formData,
         {
-          headers: { 
-            token,
+          headers: {
             'Content-Type': 'multipart/form-data'
           },
         }
@@ -65,12 +68,12 @@ const MyProfile = () => {
                 alt="Upload"
               />
             )}
-            <input 
-              type="file" 
-              id="image" 
-              hidden 
+            <input
+              type="file"
+              id="image"
+              hidden
               accept="image/*"
-              onChange={(e) => setImage(e.target.files[0])} 
+              onChange={(e) => setImage(e.target.files[0])}
             />
           </label>
         ) : (
