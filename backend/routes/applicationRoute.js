@@ -1,7 +1,7 @@
 import express from "express";
 import { addApplication } from "../controllers/applicationController.js";
 import applicationModel from "../models/applicationModel.js";
-import authAdmin from "../middlewares/authAdmin.js";
+import auth from "../middlewares/auth.js";
 import upload from "../middlewares/multer.js";
 import { sendOTP, verifyOTP } from '../controllers/otpController.js'; // FIXED: Import from otpController
 import { otpLimiter } from "../middlewares/rateLimiter.js";
@@ -25,7 +25,7 @@ applicationRouter.post(
 );
 
 // Route for getting all applications (for admin)
-applicationRouter.get("/get-applications", authAdmin, async (req, res) => {
+applicationRouter.get("/get-applications", auth("admin"), async (req, res) => {
     try {
         const applications = await applicationModel.find({}).sort({ application_date: -1 });
         
