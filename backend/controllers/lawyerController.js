@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import appointmentModel from "../models/appointmentModel.js";
 import fs from 'fs';
 import path from 'path';
+import { validatePassword } from "../utils/passwordValidator.js";
 
 const changeAvailability = async (req, res) => {
   try {
@@ -356,8 +357,9 @@ const changePassword = async (req, res) => {
       return res.json({ success: false, message: 'Current password is incorrect' });
     }
 
-    if (newPassword.length < 6) {
-      return res.json({ success: false, message: 'New password must be at least 6 characters' });
+    const pwCheck = validatePassword(newPassword);
+    if (!pwCheck.isValid) {
+      return res.json({ success: false, message: pwCheck.message });
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);

@@ -6,6 +6,7 @@ import { v2 as cloudinary } from "cloudinary";
 import lawyerModel from "../models/lawyerModel.js";
 import appointmentModel from "../models/appointmentModel.js";
 import razorpay from 'razorpay'
+import { validatePassword } from "../utils/passwordValidator.js";
 
 // API to register user
 
@@ -22,8 +23,9 @@ const registerUser = async (req, res) => {
       return res.json({ success: false, message: "Enter a valid Email" });
     }
 
-    if (password.length < 8) {
-      return res.json({ success: false, message: "Enter a Strong Password" });
+    const pwCheck = validatePassword(password);
+    if (!pwCheck.isValid) {
+      return res.json({ success: false, message: pwCheck.message });
     }
 
     //Hashing User password using bcrypt
