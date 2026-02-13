@@ -10,7 +10,7 @@ import crypto from 'crypto';
 import { validatePassword } from "../utils/passwordValidator.js";
 import { initiateMFA } from "../utils/mfaService.js";
 
-// API to register user
+// API to register user enhancement
 const registerUser = async (req, res) => {
   try {
     const { name, email, password } = req.body;
