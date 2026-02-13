@@ -55,6 +55,11 @@ const registerUser = async (req, res) => {
 const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    if (typeof email !== 'string' || typeof password !== 'string') {
+      return res.json({ success: false, message: "Invalid email or password format" });
+    }
+
     const user = await userModel.findOne({ email });
     if (!user) {
       return res.json({ success: false, message: "User does not exist" });
@@ -78,7 +83,7 @@ const loginUser = async (req, res) => {
 const getProfile = async (req, res) => {
   try {
     const { userId } = req.body;
-    const userData = await userModel.findById(userId).select("-password");
+    const userData = await userModel.findById(String(userId)).select("-password");
 
     res.json({ success: true, userData });
   } catch (error) {
@@ -138,7 +143,7 @@ const bookAppointment = async (req, res) => {
   try {
     const { userId, lawyerId, slotDate, slotTime, consultationType } = req.body
 
-    const lawyerData = await lawyerModel.findById(lawyerId).select('-password')
+    const lawyerData = await lawyerModel.findById(String(lawyerId)).select('-password')
 
     // Check if lawyer exists first
     if (!lawyerData) {
@@ -157,7 +162,7 @@ const bookAppointment = async (req, res) => {
       return res.json({ success: false, message: 'Slot not available' });
     }
 
-    const userData = await userModel.findById(userId).select('-password');
+    const userData = await userModel.findById(String(userId)).select('-password');
 
     // Create a copy of lawyerData without slots_booked for the appointment record
     const lawyerDataForAppointment = lawyerData.toObject();
@@ -198,7 +203,7 @@ const listAppointment = async (req, res) => {
   try {
 
     const { userId } = req.body
-    const appointments = await appointmentModel.find({ userId })
+    const appointments = await appointmentModel.find({ userId: String(userId) })
 
     res.json({ success: true, appointments })
 
@@ -215,7 +220,7 @@ const cancelAppointment = async (req, res) => {
 
     const { userId, appointmentId } = req.body
 
-    const appointmentData = await appointmentModel.findById(appointmentId)
+    const appointmentData = await appointmentModel.findById(String(appointmentId))
 
     //Verify appointment user
     if (appointmentData.userId !== userId) {
@@ -257,7 +262,7 @@ const paymentRazorpay = async (req, res) => {
   try {
     const { appointmentId } = req.body
 
-    const appointmentData = await appointmentModel.findById(appointmentId)
+    const appointmentData = await appointmentModel.findById(String(appointmentId))
 
     if (!appointmentData || appointmentData.cancelled) {
       return res.json({ success: false, message: "Appointment Cancelled or not Found" })
