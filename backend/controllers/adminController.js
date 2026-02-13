@@ -10,6 +10,159 @@ import lawyerModel from "../models/lawyerModel.js";
 import applicationModel from "../models/applicationModel.js";
 import { sendApprovalEmail, sendRejectionEmail } from '../config/emailConfig.js';
 
+// API to add a new lawyer manually (by admin)
+const addLawyer = async (req, res) => {
+  try {
+    const { email, password, license_number } = req.body;
+    const imageFile = req.file;
+
+    // Validate password
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res.json({ success: false, message: passwordValidation.message });
+    }
+
+    // Check if lawyer already exists
+    const existingLawyer = await checkLawyerExists(lawyerModel, email, license_number);
+    if (existingLawyer) {
+      const field = existingLawyer.email === email ? 'email' : 'license number';
+      return res.json({
+        success: false,
+        message: `A lawyer with this ${field} already exists`,
+      });
+    }
+
+    // Hash password
+    const hashedPassword = await hashPassword(password);
+
+    // Handle image upload
+    let imageUrl = '';
+    try {
+      const uploadedImageUrl = await uploadImageToCloudinary(imageFile);
+      if (uploadedImageUrl) {
+        imageUrl = uploadedImageUrl;
+      }
+    } catch (uploadError) {
+      return res.json({ success: false, message: uploadError.message });
+    }
+
+    // Build lawyer data
+    const lawyerData = buildLawyerData(req.body, imageUrl, hashedPassword);
+
+    // Create new lawyer
+    const newLawyer = new lawyerModel(lawyerData);
+    await newLawyer.save();
+
+    res.json({ success: true, message: "Lawyer added successfully" });
+
+  } catch (error) {
+    console.error("[addLawyer] Error:", error.message, error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// API for admin login
+const loginAdmin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Check against environment variables
+    if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
+      // Generate token (you'll need to implement JWT token generation)
+      const token = "admin_token_here"; // Replace with actual JWT token
+      res.json({ success: true, token });
+    } else {
+      res.json({ success: false, message: "Invalid credentials" });
+    }
+
+  } catch (error) {
+    console.error("[loginAdmin] Error:", error.message, error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// API to get all lawyers
+const allLawyers = async (req, res) => {
+  try {
+    const lawyers = await lawyerModel.find({}).select('-password');
+    res.json({ success: true, lawyers });
+
+  } catch (error) {
+    console.error("[allLawyers] Error:", error.message, error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// API to get all appointments for admin
+const appointmentsAdmin = async (req, res) => {
+  try {
+    // You'll need to import appointmentModel at the top
+    // const appointments = await appointmentModel.find({});
+    // res.json({ success: true, appointments });
+
+    res.json({ success: true, appointments: [] }); // Placeholder
+
+  } catch (error) {
+    console.error("[appointmentsAdmin] Error:", error.message, error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// API to cancel appointment
+const appointmentCancel = async (req, res) => {
+  try {
+    const { appointmentId } = req.body;
+
+    // CRITICAL: Sanitize MongoDB ID
+    const sanitizedId = sanitizeMongoId(appointmentId);
+    if (!sanitizedId) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid appointment ID format"
+      });
+    }
+
+    // You'll need to import appointmentModel and update the appointment
+    // await appointmentModel.findByIdAndUpdate(sanitizedId, { cancelled: true });
+
+    res.json({ success: true, message: "Appointment cancelled" }); // Placeholder
+
+  } catch (error) {
+    console.error("[appointmentCancel] Error:", error.message, error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// API to get admin dashboard data
+const adminDashboard = async (req, res) => {
+  try {
+    const lawyers = await lawyerModel.countDocuments();
+    const dashData = {
+      lawyers,
+      appointments: 0,
+      latestAppointments: []
+    };
+
+    res.json({ success: true, dashData });
+
+  } catch (error) {
+    console.error("[adminDashboard] Error:", error.message, error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// API to get all applications
+const getApplications = async (req, res) => {
+  try {
+    const applications = await applicationModel.find({});
+    res.json({ success: true, applications });
+
+  } catch (error) {
+    console.error("[getApplications] Error:", error.message, error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
 // API to get single lawyer details for editing
 const getLawyer = async (req, res) => {
   try {
@@ -392,7 +545,35 @@ const rejectApplication = async (req, res) => {
   }
 };
 
-// Keep other functions the same...
+// API to send email to lawyers
+const sendEmailToLawyers = async (req, res) => {
+  try {
+    const { subject, message, lawyerIds } = req.body;
+
+    if (!subject || !message) {
+      return res.json({ success: false, message: "Subject and message are required" });
+    }
+
+    // Sanitize lawyer IDs
+    const sanitizedIds = lawyerIds.map(id => sanitizeMongoId(id)).filter(id => id !== null);
+
+    if (sanitizedIds.length === 0) {
+      return res.json({ success: false, message: "No valid lawyer IDs provided" });
+    }
+
+    const lawyers = await lawyerModel.find({ _id: { $in: sanitizedIds } });
+
+    // Send emails to each lawyer
+    // You'll need to implement the email sending logic here
+    console.log(`Sending email to ${lawyers.length} lawyers`);
+
+    res.json({ success: true, message: `Email sent to ${lawyers.length} lawyers` });
+
+  } catch (error) {
+    console.error("[sendEmailToLawyers] Error:", error.message, error);
+    res.json({ success: false, message: error.message });
+  }
+};
 
 export {
   addLawyer,

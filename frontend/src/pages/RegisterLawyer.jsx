@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, User, Mail, Phone, GraduationCap, MapPin, Scale, FileText, Camera, Upload, MapPinned } from 'lucide-react';
-import axios from 'axios';
+import { ChevronLeft, ChevronRight, User, Mail, GraduationCap, MapPin, Scale, FileText, Camera, Upload, MapPinned } from 'lucide-react';
+import api from '../utils/api';
+import { sanitizeInput } from '../utils/sanitize';
 import { toast } from 'react-toastify';
 
 const RegisterLawyer = () => {
+    // Password validation configuration
+    const PASSWORD_MIN_LENGTH = 8;
+    const PASSWORD_VALIDATION_MESSAGE = `Password must be at least ${PASSWORD_MIN_LENGTH} characters`;
+    const PASSWORD_MISMATCH_MESSAGE = 'Passwords do not match';
 
-    // OTP part state variables
+    // OTP state variables
     const [otpSent, setOtpSent] = useState(false);
     const [otpVerified, setOtpVerified] = useState(false);
     const [otpValue, setOtpValue] = useState('');
@@ -45,9 +50,6 @@ const RegisterLawyer = () => {
         application_legal_professionals_certificate: []
     });
 
-    const backendUrl = import.meta.env.VITE_BACKEND_URL;
-
-    // Sri Lankan specific data
     const specialities = [
         'Criminal Law',
         'Civil Law',
@@ -114,41 +116,54 @@ const RegisterLawyer = () => {
     // Live validation
     useEffect(() => {
         validateCurrentStep();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [formData, passwordConfirm, currentStep]);
+
+    // Validation helper functions
+    const validatePersonalInfo = (errors) => {
+        if (formData.application_name && formData.application_name.length < 3) {
+            errors.name = 'Name must be at least 3 characters';
+        }
+        if (formData.application_dob) {
+            const dobYear = new Date(formData.application_dob).getFullYear();
+            if (dobYear >= 2000) {
+                errors.dob = 'Must be born before 2000';
+            }
+        }
+    };
+
+    const validateContactDetails = (errors) => {
+        if (formData.application_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.application_email)) {
+            errors.email = 'Invalid email format';
+        }
+        if (formData.application_password && formData.application_password.length < PASSWORD_MIN_LENGTH) {
+            errors.password = PASSWORD_VALIDATION_MESSAGE;
+        }
+        if (passwordConfirm && formData.application_password !== passwordConfirm) {
+            errors.passwordConfirm = PASSWORD_MISMATCH_MESSAGE;
+        }
+        if (formData.application_phone && !/^(?:\+94|0)?7\d{8}$/.test(formData.application_phone.replaceAll(/\s/g, ''))) {
+            errors.phone = 'Invalid Sri Lankan mobile number';
+        }
+        if (formData.application_office_phone && formData.application_office_phone.length > 0 &&
+            !/^(?:\+94|0)?(?:[1-9]1|2[1-7]|3[1-8]|4[157]|5[1-7]|6[1-7]|[78]1)\d{7}$/.test(formData.application_office_phone.replaceAll(/\s/g, ''))) {
+            errors.officePhone = 'Invalid Sri Lankan landline number';
+        }
+    };
 
     const validateCurrentStep = () => {
         const newErrors = {};
 
         switch (currentStep) {
             case 0: // Personal Info
-                if (formData.application_name && formData.application_name.length < 3) {
-                    newErrors.name = 'Name must be at least 3 characters';
-                }
-                if (formData.application_dob) {
-                    const dobYear = new Date(formData.application_dob).getFullYear();
-                    if (dobYear >= 2000) {
-                        newErrors.dob = 'Must be born before 2000';
-                    }
-                }
+                validatePersonalInfo(newErrors);
                 break;
 
             case 1: // Contact Details
-                if (formData.application_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.application_email)) {
-                    newErrors.email = 'Invalid email format';
-                }
-                if (formData.application_password && formData.application_password.length < 8) {
-                    newErrors.password = 'Password must be at least 8 characters';
-                }
-                if (passwordConfirm && formData.application_password !== passwordConfirm) {
-                    newErrors.passwordConfirm = 'Passwords do not match';
-                }
-                if (formData.application_phone && !/^(?:\+94|0)?7\d{8}$/.test(formData.application_phone.replace(/\s/g, ''))) {
-                    newErrors.phone = 'Invalid Sri Lankan mobile number';
-                }
-                if (formData.application_office_phone && formData.application_office_phone.length > 0 &&
-                    !/^(?:\+94|0)?(?:11|21|31|41|51|61|91|81|71|23|24|25|26|27|32|33|34|35|36|37|38|45|47|52|54|55|57|63|65|66|67)\d{7}$/.test(formData.application_office_phone.replace(/\s/g, ''))) {
-                    newErrors.officePhone = 'Invalid Sri Lankan landline number';
-                }
+                validateContactDetails(newErrors);
+                break;
+
+            default:
                 break;
         }
 
@@ -188,7 +203,7 @@ const RegisterLawyer = () => {
                     handleInputChange('application_longitude', position.coords.longitude);
                     toast.success('Location captured successfully!');
                 },
-                (error) => {
+                () => {
                     toast.error('Unable to get location. Please enter manually.');
                 }
             );
@@ -197,11 +212,12 @@ const RegisterLawyer = () => {
         }
     };
 
-    const formatPhoneNumber = (value, isOffice = false) => {
-        const cleaned = value.replace(/\D/g, '');
+    const formatPhoneNumber = (value) => {
+        const cleaned = value.replaceAll(/\D/g, '');
         if (cleaned.startsWith('94')) {
-            return '+94 ' + cleaned.slice(2).replace(/(\d{2})(\d{3})(\d{4})/, '$1 $2 $3');
-        } else if (cleaned.startsWith('0')) {
+            return `+94 ${cleaned.slice(2).replace(/(\d{2})(\d{3})(\d{4})/, '$1 $2 $3')}`;
+        }
+        if (cleaned.startsWith('0')) {
             return cleaned.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3');
         }
         return value;
@@ -219,11 +235,6 @@ const RegisterLawyer = () => {
             ...prev,
             [field]: Array.from(files)
         }));
-    };
-
-    const handleArrayInput = (field, value) => {
-        const values = value.split(',').map(item => item.trim()).filter(item => item);
-        handleInputChange(field, values);
     };
 
     const nextStep = () => {
@@ -257,20 +268,20 @@ const RegisterLawyer = () => {
             'application_court1'
         ];
 
-        for (let field of requiredFields) {
+        for (const field of requiredFields) {
             if (!formData[field] || formData[field] === '') {
-                toast.error(`Please fill in ${field.replace('application_', '').replace('_', ' ')}`);
+                toast.error(`Please fill in ${field.replace('application_', '').replaceAll('_', ' ')}`);
                 return false;
             }
         }
 
-        if (!formData.application_password || formData.application_password.length < 8) {
-            toast.error('Password must be at least 8 characters');
+        if (!formData.application_password || formData.application_password.length < PASSWORD_MIN_LENGTH) {
+            toast.error(PASSWORD_VALIDATION_MESSAGE);
             return false;
         }
 
         if (formData.application_password !== passwordConfirm) {
-            toast.error('Passwords do not match');
+            toast.error(PASSWORD_MISMATCH_MESSAGE);
             return false;
         }
 
@@ -292,7 +303,7 @@ const RegisterLawyer = () => {
         return true;
     };
 
-    // OTP FUNCTIONS - ADDED HERE
+    // OTP FUNCTIONS
     const handleSendOTP = async () => {
         if (!formData.application_email) {
             toast.error('Please enter your email address first');
@@ -306,8 +317,8 @@ const RegisterLawyer = () => {
 
         try {
             setIsSendingOTP(true);
-            const response = await axios.post(`${backendUrl}/api/application/send-otp`, {
-                email: formData.application_email
+            const response = await api.post('/api/application/send-otp', {
+                email: sanitizeInput(formData.application_email)
             });
 
             if (response.data.success) {
@@ -332,8 +343,8 @@ const RegisterLawyer = () => {
 
         try {
             setIsVerifyingOTP(true);
-            const response = await axios.post(`${backendUrl}/api/application/verify-otp`, {
-                email: formData.application_email,
+            const response = await api.post('/api/application/verify-otp', {
+                email: sanitizeInput(formData.application_email),
                 otp: otpValue
             });
 
@@ -364,29 +375,32 @@ const RegisterLawyer = () => {
             // Create FormData for file uploads
             const submitData = new FormData();
 
-            // Add text fields
-            submitData.append('application_name', formData.application_name);
-            submitData.append('application_email', formData.application_email);
+            // Add text fields (sanitized)
+            submitData.append('application_name', sanitizeInput(formData.application_name));
+            submitData.append('application_email', sanitizeInput(formData.application_email));
             submitData.append('application_password', formData.application_password);
-            submitData.append('application_phone', formData.application_phone);
-            submitData.append('application_office_phone', formData.application_office_phone);
+            submitData.append('application_phone', sanitizeInput(formData.application_phone));
+            submitData.append('application_office_phone', sanitizeInput(formData.application_office_phone));
             submitData.append('application_speciality', formData.application_speciality);
             submitData.append('application_gender', formData.application_gender);
             submitData.append('application_dob', formData.application_dob);
             submitData.append('application_degree', JSON.stringify(formData.application_degree));
             submitData.append('application_district', formData.application_district);
-            submitData.append('application_license_number', formData.application_license_number);
-            submitData.append('application_bar_association', formData.application_bar_association);
+            submitData.append('application_license_number', sanitizeInput(formData.application_license_number));
+            submitData.append('application_bar_association', sanitizeInput(formData.application_bar_association));
             submitData.append('application_experience', formData.application_experience);
             submitData.append('application_languages_spoken', JSON.stringify(formData.application_languages_spoken));
-            submitData.append('application_about', formData.application_about);
+            submitData.append('application_about', sanitizeInput(formData.application_about));
             submitData.append('application_legal_professionals', JSON.stringify(formData.application_legal_professionals));
-            submitData.append('application_fees', formData.application_fees);
-            submitData.append('application_address', JSON.stringify(formData.application_address));
-            submitData.append('application_latitude', formData.application_latitude);
-            submitData.append('application_longitude', formData.application_longitude);
-            submitData.append('application_court1', formData.application_court1);
-            submitData.append('application_court2', formData.application_court2);
+            submitData.append('application_fees', formData.application_fees.toString());
+            submitData.append('application_address', JSON.stringify({
+                line1: sanitizeInput(formData.application_address?.line1 || ''),
+                line2: sanitizeInput(formData.application_address?.line2 || '')
+            }));
+            submitData.append('application_latitude', formData.application_latitude.toString());
+            submitData.append('application_longitude', formData.application_longitude.toString());
+            submitData.append('application_court1', sanitizeInput(formData.application_court1));
+            submitData.append('application_court2', sanitizeInput(formData.application_court2));
 
             // Add files
             if (formData.application_image) {
@@ -405,7 +419,7 @@ const RegisterLawyer = () => {
             }
 
             // Submit to backend
-            const response = await axios.post(`${backendUrl}/api/application/add-application`, submitData, {
+            const response = await api.post('/api/application/add-application', submitData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 }
@@ -470,10 +484,12 @@ const RegisterLawyer = () => {
 
                     return (
                         <React.Fragment key={step.id}>
-                            <div
+                            <button
+                                type="button"
                                 className={`flex flex-col items-center cursor-pointer transition-all duration-300 ${isActive ? 'scale-110' : 'scale-100'
                                     }`}
                                 onClick={() => goToStep(index)}
+                                aria-label={`Go to step ${index + 1}: ${step.title}`}
                             >
                                 <div className={`
                                     w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 border-2
@@ -492,7 +508,7 @@ const RegisterLawyer = () => {
                                 `}>
                                     {step.title}
                                 </span>
-                            </div>
+                            </button>
                             {index < steps.length - 1 && (
                                 <div className={`
                                     w-8 h-0.5 mx-2 transition-colors duration-300
@@ -511,8 +527,9 @@ const RegisterLawyer = () => {
             <h2 className="text-2xl font-semibold text-gray-900 mb-6">Personal Information</h2>
             <div className="grid md:grid-cols-2 gap-6">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
+                    <label htmlFor="full-name" className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
                     <input
+                        id="full-name"
                         type="text"
                         value={formData.application_name}
                         onChange={(e) => handleInputChange('application_name', e.target.value)}
@@ -523,8 +540,9 @@ const RegisterLawyer = () => {
                     {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Gender *</label>
+                    <label htmlFor="gender" className="block text-sm font-medium text-gray-700 mb-2">Gender *</label>
                     <select
+                        id="gender"
                         value={formData.application_gender}
                         onChange={(e) => handleInputChange('application_gender', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
@@ -537,8 +555,9 @@ const RegisterLawyer = () => {
                     </select>
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth (Must be before 2000)</label>
+                    <label htmlFor="dob" className="block text-sm font-medium text-gray-700 mb-2">Date of Birth (Must be before 2000)</label>
                     <input
+                        id="dob"
                         type="date"
                         value={formData.application_dob}
                         onChange={(e) => handleInputChange('application_dob', e.target.value)}
@@ -548,8 +567,9 @@ const RegisterLawyer = () => {
                     {errors.dob && <p className="text-red-500 text-xs mt-1">{errors.dob}</p>}
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Speciality *</label>
+                    <label htmlFor="speciality" className="block text-sm font-medium text-gray-700 mb-2">Speciality *</label>
                     <select
+                        id="speciality"
                         value={formData.application_speciality}
                         onChange={(e) => handleInputChange('application_speciality', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
@@ -563,8 +583,9 @@ const RegisterLawyer = () => {
                 </div>
             </div>
             <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">About Yourself</label>
+                <label htmlFor="about" className="block text-sm font-medium text-gray-700 mb-2">About Yourself</label>
                 <textarea
+                    id="about"
                     value={formData.application_about}
                     onChange={(e) => handleInputChange('application_about', e.target.value)}
                     rows={4}
@@ -580,8 +601,9 @@ const RegisterLawyer = () => {
             <h2 className="text-2xl font-semibold text-gray-900 mb-6">Contact Information</h2>
             <div className="grid md:grid-cols-2 gap-6">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Email Address *</label>
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">Email Address *</label>
                     <input
+                        id="email"
                         type="email"
                         value={formData.application_email}
                         onChange={(e) => handleInputChange('application_email', e.target.value)}
@@ -593,8 +615,9 @@ const RegisterLawyer = () => {
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Password *</label>
+                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">Password *</label>
                     <input
+                        id="password"
                         type="password"
                         value={formData.application_password}
                         onChange={(e) => handleInputChange('application_password', e.target.value)}
@@ -606,8 +629,9 @@ const RegisterLawyer = () => {
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Password *</label>
+                    <label htmlFor="password-confirm" className="block text-sm font-medium text-gray-700 mb-2">Confirm Password *</label>
                     <input
+                        id="password-confirm"
                         type="password"
                         value={passwordConfirm}
                         onChange={(e) => setPasswordConfirm(e.target.value)}
@@ -620,8 +644,9 @@ const RegisterLawyer = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Number *</label>
+                        <label htmlFor="mobile" className="block text-sm font-medium text-gray-700 mb-2">Mobile Number *</label>
                         <input
+                            id="mobile"
                             type="tel"
                             value={formData.application_phone}
                             onChange={(e) => {
@@ -636,12 +661,13 @@ const RegisterLawyer = () => {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Office Phone</label>
+                        <label htmlFor="office-phone" className="block text-sm font-medium text-gray-700 mb-2">Office Phone</label>
                         <input
+                            id="office-phone"
                             type="tel"
                             value={formData.application_office_phone}
                             onChange={(e) => {
-                                const formatted = formatPhoneNumber(e.target.value, true);
+                                const formatted = formatPhoneNumber(e.target.value);
                                 handleInputChange('application_office_phone', formatted);
                             }}
                             className={`w-full px-3 py-2 border ${errors.officePhone ? 'border-red-500' : 'border-gray-300'} rounded-md text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200`}
@@ -652,12 +678,13 @@ const RegisterLawyer = () => {
                 </div>
             </div>
 
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">Languages Spoken *</label>
+            <fieldset>
+                <legend className="block text-sm font-medium text-gray-700 mb-3">Languages Spoken *</legend>
                 <div className="flex gap-6">
                     {['Sinhala', 'Tamil', 'English'].map(language => (
-                        <label key={language} className="flex items-center cursor-pointer">
+                        <label key={language} htmlFor={`lang-${language}`} className="flex items-center cursor-pointer">
                             <input
+                                id={`lang-${language}`}
                                 type="checkbox"
                                 checked={formData.application_languages_spoken.includes(language)}
                                 onChange={() => handleLanguageToggle(language)}
@@ -670,7 +697,7 @@ const RegisterLawyer = () => {
                 {formData.application_languages_spoken.length === 0 && (
                     <p className="text-gray-500 text-xs mt-1">Please select at least one language</p>
                 )}
-            </div>
+            </fieldset>
         </div>
     );
 
@@ -678,12 +705,13 @@ const RegisterLawyer = () => {
         <div className="space-y-6">
             <h2 className="text-2xl font-semibold text-gray-900 mb-6">Education & Qualifications</h2>
             <div className="space-y-6">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">Degrees & Qualifications *</label>
+                <fieldset>
+                    <legend className="block text-sm font-medium text-gray-700 mb-3">Degrees & Qualifications *</legend>
                     <div className="space-y-2 max-h-60 overflow-y-auto border border-gray-200 rounded-md p-3">
                         {degrees.map(degree => (
-                            <label key={degree} className="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded">
+                            <label key={degree} htmlFor={`degree-${degree}`} className="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded">
                                 <input
+                                    id={`degree-${degree}`}
                                     type="checkbox"
                                     checked={formData.application_degree.includes(degree)}
                                     onChange={() => handleDegreeToggle(degree)}
@@ -696,11 +724,12 @@ const RegisterLawyer = () => {
                     {formData.application_degree.length === 0 && (
                         <p className="text-gray-500 text-xs mt-1">Please select at least one degree</p>
                     )}
-                </div>
+                </fieldset>
 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Legal Professionals Information *</label>
+                    <label htmlFor="legal-professionals" className="block text-sm font-medium text-gray-700 mb-2">Legal Professionals Information *</label>
                     <textarea
+                        id="legal-professionals"
                         value={formData.application_legal_professionals.join('\n')}
                         onChange={(e) => handleInputChange('application_legal_professionals', e.target.value.split('\n').filter(item => item.trim()))}
                         rows={4}
@@ -718,8 +747,9 @@ const RegisterLawyer = () => {
             <h2 className="text-2xl font-semibold text-gray-900 mb-6">Professional Details</h2>
             <div className="grid md:grid-cols-2 gap-6">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">License Number *</label>
+                    <label htmlFor="license-number" className="block text-sm font-medium text-gray-700 mb-2">License Number *</label>
                     <input
+                        id="license-number"
                         type="text"
                         value={formData.application_license_number}
                         onChange={(e) => handleInputChange('application_license_number', e.target.value)}
@@ -729,8 +759,9 @@ const RegisterLawyer = () => {
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Bar Association *</label>
+                    <label htmlFor="bar-association" className="block text-sm font-medium text-gray-700 mb-2">Bar Association *</label>
                     <input
+                        id="bar-association"
                         type="text"
                         value={formData.application_bar_association}
                         onChange={(e) => handleInputChange('application_bar_association', e.target.value)}
@@ -740,8 +771,9 @@ const RegisterLawyer = () => {
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Years of Experience *</label>
+                    <label htmlFor="experience" className="block text-sm font-medium text-gray-700 mb-2">Years of Experience *</label>
                     <input
+                        id="experience"
                         type="text"
                         value={formData.application_experience}
                         onChange={(e) => handleInputChange('application_experience', e.target.value)}
@@ -751,19 +783,21 @@ const RegisterLawyer = () => {
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Consultation Fees (LKR)</label>
+                    <label htmlFor="fees" className="block text-sm font-medium text-gray-700 mb-2">Consultation Fees (LKR)</label>
                     <input
+                        id="fees"
                         type="number"
                         value={formData.application_fees}
-                        onChange={(e) => handleInputChange('application_fees', parseFloat(e.target.value) || 0)}
+                        onChange={(e) => handleInputChange('application_fees', Number.parseFloat(e.target.value) || 0)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                         placeholder="Enter consultation fees"
                         min="0"
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Primary Court *</label>
+                    <label htmlFor="court1" className="block text-sm font-medium text-gray-700 mb-2">Primary Court *</label>
                     <input
+                        id="court1"
                         type="text"
                         value={formData.application_court1}
                         onChange={(e) => handleInputChange('application_court1', e.target.value)}
@@ -773,8 +807,9 @@ const RegisterLawyer = () => {
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Secondary Court</label>
+                    <label htmlFor="court2" className="block text-sm font-medium text-gray-700 mb-2">Secondary Court</label>
                     <input
+                        id="court2"
                         type="text"
                         value={formData.application_court2}
                         onChange={(e) => handleInputChange('application_court2', e.target.value)}
@@ -791,8 +826,9 @@ const RegisterLawyer = () => {
             <h2 className="text-2xl font-semibold text-gray-900 mb-6">Location & Address</h2>
             <div className="grid md:grid-cols-2 gap-6">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">District *</label>
+                    <label htmlFor="district" className="block text-sm font-medium text-gray-700 mb-2">District *</label>
                     <select
+                        id="district"
                         value={formData.application_district}
                         onChange={(e) => handleInputChange('application_district', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
@@ -805,8 +841,9 @@ const RegisterLawyer = () => {
                     </select>
                 </div>
                 <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Complete Address *</label>
+                    <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">Complete Address *</label>
                     <textarea
+                        id="address"
                         value={typeof formData.application_address === 'string' ? formData.application_address : formData.application_address.street || ''}
                         onChange={(e) => handleInputChange('application_address', { street: e.target.value, district: formData.application_district })}
                         rows={3}
@@ -817,23 +854,25 @@ const RegisterLawyer = () => {
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Latitude</label>
+                    <label htmlFor="latitude" className="block text-sm font-medium text-gray-700 mb-2">Latitude</label>
                     <input
+                        id="latitude"
                         type="number"
                         step="any"
                         value={formData.application_latitude}
-                        onChange={(e) => handleInputChange('application_latitude', parseFloat(e.target.value) || 0)}
+                        onChange={(e) => handleInputChange('application_latitude', Number.parseFloat(e.target.value) || 0)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                         placeholder="Enter latitude"
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Longitude</label>
+                    <label htmlFor="longitude" className="block text-sm font-medium text-gray-700 mb-2">Longitude</label>
                     <input
+                        id="longitude"
                         type="number"
                         step="any"
                         value={formData.application_longitude}
-                        onChange={(e) => handleInputChange('application_longitude', parseFloat(e.target.value) || 0)}
+                        onChange={(e) => handleInputChange('application_longitude', Number.parseFloat(e.target.value) || 0)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                         placeholder="Enter longitude"
                     />
@@ -865,10 +904,12 @@ const RegisterLawyer = () => {
                     <Upload className="mx-auto h-12 w-12 text-gray-400" />
                     <h3 className="mt-2 text-sm font-medium text-gray-900">Profile Picture (Optional)</h3>
                     <p className="mt-1 text-sm text-gray-600">Upload your professional photo</p>
+                    <label htmlFor="profile-pic" className="sr-only">Profile Picture</label>
                     <input
+                        id="profile-pic"
                         type="file"
                         accept="image/*"
-                        onChange={(e) => handleFileChange('application_image', e.target.files[0])}
+                        onChange={(e) => handleFileChange('application_image', e.target.files?.[0] || null)}
                         className="mt-2 block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-gray-300 file:text-sm file:font-medium file:bg-white file:text-gray-700 hover:file:bg-gray-50"
                     />
                     {formData.application_image && (
@@ -880,10 +921,12 @@ const RegisterLawyer = () => {
                     <FileText className="mx-auto h-12 w-12 text-gray-400" />
                     <h3 className="mt-2 text-sm font-medium text-gray-900">License Certificate (Optional)</h3>
                     <p className="mt-1 text-sm text-gray-600">Upload your law license certificate</p>
+                    <label htmlFor="license-cert" className="sr-only">License Certificate</label>
                     <input
+                        id="license-cert"
                         type="file"
                         accept=".pdf,.doc,.docx"
-                        onChange={(e) => handleFileChange('application_license_certificate', e.target.files[0])}
+                        onChange={(e) => handleFileChange('application_license_certificate', e.target.files?.[0] || null)}
                         className="mt-2 block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-gray-300 file:text-sm file:font-medium file:bg-white file:text-gray-700 hover:file:bg-gray-50"
                     />
                     {formData.application_license_certificate && (
@@ -895,10 +938,12 @@ const RegisterLawyer = () => {
                     <FileText className="mx-auto h-12 w-12 text-gray-400" />
                     <h3 className="mt-2 text-sm font-medium text-gray-900">Birth Certificate (Optional)</h3>
                     <p className="mt-1 text-sm text-gray-600">Upload your birth certificate</p>
+                    <label htmlFor="birth-cert" className="sr-only">Birth Certificate</label>
                     <input
+                        id="birth-cert"
                         type="file"
                         accept=".pdf,.doc,.docx"
-                        onChange={(e) => handleFileChange('application_birth_certificate', e.target.files[0])}
+                        onChange={(e) => handleFileChange('application_birth_certificate', e.target.files?.[0] || null)}
                         className="mt-2 block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-gray-300 file:text-sm file:font-medium file:bg-white file:text-gray-700 hover:file:bg-gray-50"
                     />
                     {formData.application_birth_certificate && (
@@ -910,11 +955,13 @@ const RegisterLawyer = () => {
                     <FileText className="mx-auto h-12 w-12 text-gray-400" />
                     <h3 className="mt-2 text-sm font-medium text-gray-900">Professional Certificates (Optional)</h3>
                     <p className="mt-1 text-sm text-gray-600">Upload additional professional certificates</p>
+                    <label htmlFor="prof-certs" className="sr-only">Professional Certificates</label>
                     <input
+                        id="prof-certs"
                         type="file"
                         accept=".pdf,.doc,.docx"
                         multiple
-                        onChange={(e) => handleMultipleFileChange('application_legal_professionals_certificate', e.target.files)}
+                        onChange={(e) => handleMultipleFileChange('application_legal_professionals_certificate', e.target.files || [])}
                         className="mt-2 block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-gray-300 file:text-sm file:font-medium file:bg-white file:text-gray-700 hover:file:bg-gray-50"
                     />
                     {formData.application_legal_professionals_certificate.length > 0 && (
@@ -926,6 +973,77 @@ const RegisterLawyer = () => {
             </div>
         </div>
     );
+
+    // Helper function to render OTP verification section based on state
+    const renderOtpSection = () => {
+        // Case 1: OTP not sent yet - show send button
+        if (!otpSent) {
+            return (
+                <div>
+                    <p className="text-sm text-blue-700 mb-4">
+                        Please verify your email address before submitting the application.
+                    </p>
+                    <button
+                        type="button"
+                        onClick={handleSendOTP}
+                        disabled={isSendingOTP}
+                        className="w-full px-6 py-3 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isSendingOTP ? 'Sending OTP...' : 'Send OTP to Email'}
+                    </button>
+                </div>
+            );
+        }
+
+        // Case 2: OTP verified successfully - show success message
+        if (otpVerified) {
+            return (
+                <div className="text-center">
+                    <p className="text-green-700 font-medium mb-2">✓ Email Verified Successfully!</p>
+                    <p className="text-sm text-green-600">You can now submit your application.</p>
+                </div>
+            );
+        }
+
+        // Case 3: OTP sent but not verified - show verification input
+        return (
+            <div className="space-y-4">
+                <p className="text-sm text-blue-700">
+                    Enter the 6-digit code sent to <strong>{formData.application_email}</strong>
+                </p>
+                <label htmlFor="otp-input" className="sr-only">Enter OTP</label>
+                <input
+                    id="otp-input"
+                    type="text"
+                    maxLength={6}
+                    value={otpValue}
+                    onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, ''))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-md text-center text-2xl tracking-widest font-mono"
+                    placeholder="000000"
+                />
+                <div className="flex gap-3">
+                    <button
+                        type="button"
+                        onClick={handleVerifyOTP}
+                        disabled={isVerifyingOTP || otpValue.length !== 6}
+                        className="flex-1 px-6 py-3 bg-green-600 text-white rounded-md font-medium hover:bg-green-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isVerifyingOTP ? 'Verifying...' : 'Verify OTP'}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setOtpSent(false);
+                            setOtpValue('');
+                        }}
+                        className="px-6 py-3 bg-gray-500 text-white rounded-md font-medium hover:bg-gray-600 transition-all duration-200"
+                    >
+                        Resend OTP
+                    </button>
+                </div>
+            </div>
+        );
+    };
 
     const renderReview = () => (
         <div className="space-y-6">
@@ -986,58 +1104,7 @@ const RegisterLawyer = () => {
             {/* OTP Verification Section */}
             <div className="mt-6 border border-blue-200 rounded-lg p-6 bg-blue-50">
                 <h4 className="font-medium text-blue-800 mb-4">Email Verification Required</h4>
-
-                {!otpSent ? (
-                    <div>
-                        <p className="text-sm text-blue-700 mb-4">
-                            Please verify your email address before submitting the application.
-                        </p>
-                        <button
-                            onClick={handleSendOTP}
-                            disabled={isSendingOTP}
-                            className="w-full px-6 py-3 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {isSendingOTP ? 'Sending OTP...' : 'Send OTP to Email'}
-                        </button>
-                    </div>
-                ) : !otpVerified ? (
-                    <div className="space-y-4">
-                        <p className="text-sm text-blue-700">
-                            Enter the 6-digit code sent to <strong>{formData.application_email}</strong>
-                        </p>
-                        <input
-                            type="text"
-                            maxLength="6"
-                            value={otpValue}
-                            onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, ''))}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-md text-center text-2xl tracking-widest font-mono"
-                            placeholder="000000"
-                        />
-                        <div className="flex gap-3">
-                            <button
-                                onClick={handleVerifyOTP}
-                                disabled={isVerifyingOTP || otpValue.length !== 6}
-                                className="flex-1 px-6 py-3 bg-green-600 text-white rounded-md font-medium hover:bg-green-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {isVerifyingOTP ? 'Verifying...' : 'Verify OTP'}
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setOtpSent(false);
-                                    setOtpValue('');
-                                }}
-                                className="px-6 py-3 bg-gray-500 text-white rounded-md font-medium hover:bg-gray-600 transition-all duration-200"
-                            >
-                                Resend OTP
-                            </button>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="text-center">
-                        <p className="text-green-700 font-medium mb-2">✓ Email Verified Successfully!</p>
-                        <p className="text-sm text-green-600">You can now submit your application.</p>
-                    </div>
-                )}
+                {renderOtpSection()}
             </div>
         </div>
     );
@@ -1053,6 +1120,12 @@ const RegisterLawyer = () => {
             case 6: return renderReview();
             default: return renderPersonalInfo();
         }
+    };
+
+    const getSubmitButtonText = () => {
+        if (isSubmitting) return 'Submitting...';
+        if (otpVerified) return 'Submit Application';
+        return 'Verify Email First';
     };
 
     return (
@@ -1075,11 +1148,12 @@ const RegisterLawyer = () => {
 
                         <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-200">
                             <button
+                                type="button"
                                 onClick={prevStep}
                                 disabled={currentStep === 0 || isSubmitting}
                                 className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${currentStep === 0 || isSubmitting
-                                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
-                                        : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300 hover:border-gray-400'
+                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+                                    : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300 hover:border-gray-400'
                                     }`}
                             >
                                 <ChevronLeft size={20} className="mr-2" />
@@ -1088,6 +1162,7 @@ const RegisterLawyer = () => {
 
                             {currentStep < steps.length - 1 ? (
                                 <button
+                                    type="button"
                                     onClick={nextStep}
                                     disabled={isSubmitting}
                                     className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1097,14 +1172,15 @@ const RegisterLawyer = () => {
                                 </button>
                             ) : (
                                 <button
+                                    type="button"
                                     onClick={handleSubmit}
                                     disabled={isSubmitting || !otpVerified}
-                                    className={`flex items-center px-6 py-2 rounded-md text-sm font-bold transition-all duration-200 ${!otpVerified
-                                            ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                                            : 'bg-green-600 text-white hover:bg-green-700'
+                                    className={`flex items-center px-6 py-2 rounded-md text-sm font-bold transition-all duration-200 ${otpVerified
+                                        ? 'bg-green-600 text-white hover:bg-green-700'
+                                        : 'bg-gray-400 text-gray-200 cursor-not-allowed'
                                         } disabled:opacity-50`}
                                 >
-                                    {isSubmitting ? 'Submitting...' : !otpVerified ? 'Verify Email First' : 'Submit Application'}
+                                    {getSubmitButtonText()}
                                 </button>
                             )}
                         </div>

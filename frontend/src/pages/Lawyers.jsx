@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useState, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AppContext } from '../context/AppContext'
+import { escapeHtml } from '../utils/sanitize'
 
 const Lawyers = () => {
   const { speciality } = useParams()
@@ -280,9 +281,9 @@ const Lawyers = () => {
               type: 'district'
             },
             popupTemplate: {
-              title: `${districtName} District`,
+              title: `${escapeHtml(districtName)} District`,
               content: `<div class="p-2">
-                <p><strong>District:</strong> ${districtName}</p>
+                <p><strong>District:</strong> ${escapeHtml(districtName)}</p>
                 <p><strong>Available Lawyers:</strong>  ${lawyers.filter(l => l.district === districtName).length}</p>
                 <p class="text-sm text-gray-600 mt-2">Click to view lawyers in this district</p>
               </div>`
@@ -426,17 +427,17 @@ const Lawyers = () => {
               district: lawyer.district
             },
             popupTemplate: {
-              title: `⚖️ ${lawyer.name}`,
+              title: `⚖️ ${escapeHtml(lawyer.name)}`,
               content: `
                 <div class="p-3 font-sans">
                   <div class="mb-3">
-                    <img src="${lawyer.image}" alt="${lawyer.name}" class="w-16 h-16 rounded-full mx-auto object-cover">
+                    <img src="${escapeHtml(lawyer.image)}" alt="${escapeHtml(lawyer.name)}" class="w-16 h-16 rounded-full mx-auto object-cover">
                   </div>
                   <div class="space-y-2">
-                    <p><strong>🏛️ Specialty:</strong> ${lawyer.speciality}</p>
-                    <p><strong>📍 District:</strong> ${lawyer.district}</p>
-                    <p><strong>⏱️ Experience:</strong> ${lawyer.experience} years</p>
-                    <p><strong>💬 Consultation:</strong> ${lawyer.consultationMethod}</p>
+                    <p><strong>🏛️ Specialty:</strong> ${escapeHtml(lawyer.speciality)}</p>
+                    <p><strong>📍 District:</strong> ${escapeHtml(lawyer.district)}</p>
+                    <p><strong>⏱️ Experience:</strong> ${escapeHtml(String(lawyer.experience))} years</p>
+                    <p><strong>💬 Consultation:</strong> ${escapeHtml(lawyer.consultationMethod || '')}</p>
                   </div>
                   <div class="mt-3 pt-2 border-t">
                     <p class="text-sm text-gray-600">Click marker to book appointment</p>
