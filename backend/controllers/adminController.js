@@ -7,6 +7,7 @@ import appointmentModel from "../models/appointmentModel.js";
 import userModel from "../models/userModel.js";
 import applicationModel from "../models/applicationModel.js";
 import { sendApprovalEmail, sendRejectionEmail, sendBulkEmail } from '../config/emailConfig.js';
+import { validatePassword } from "../utils/passwordValidator.js";
 
 
 // API for adding lawyer
@@ -70,10 +71,11 @@ const addLawyer = async (req, res) => {
     }
 
     // validating strong Password
-    if (password.length < 8) {
+    const pwCheck = validatePassword(password);
+    if (!pwCheck.isValid) {
       return res.json({
         success: false,
-        message: "Please Enter a Strong Password",
+        message: pwCheck.message,
       });
     }
 
@@ -368,10 +370,11 @@ const updateLawyer = async (req, res) => {
     // Validate and hash new password if provided
     let hashedPassword = existingLawyer.password;
     if (password && password.trim() !== '') {
-      if (password.length < 8) {
+      const pwCheck = validatePassword(password);
+      if (!pwCheck.isValid) {
         return res.json({
           success: false,
-          message: "Password must be at least 8 characters long",
+          message: pwCheck.message,
         });
       }
 
@@ -451,8 +454,9 @@ const resetLawyerPassword = async (req, res) => {
       return res.json({ success: false, message: "Lawyer ID and new password are required" });
     }
 
-    if (newPassword.length < 8) {
-      return res.json({ success: false, message: "Password must be at least 8 characters long" });
+    const pwCheck = validatePassword(newPassword);
+    if (!pwCheck.isValid) {
+      return res.json({ success: false, message: pwCheck.message });
     }
 
     // Check if lawyer exists
@@ -567,10 +571,11 @@ const approveApplication = async (req, res) => {
       });
     }
 
-    if (application.application_password.length < 8) {
+    const pwCheck = validatePassword(application.application_password);
+    if (!pwCheck.isValid) {
       return res.json({
         success: false,
-        message: "Application password must be at least 8 characters long"
+        message: pwCheck.message
       });
     }
 
