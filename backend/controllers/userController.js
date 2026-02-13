@@ -273,30 +273,114 @@ const getRazorpayInstance = () => {
 
 const paymentRazorpay = async (req, res) => {
 
+ //********************************************************************* */
   try {
-    const { appointmentId } = req.body
+    const { userId, appointmentId } = req.body
+    const clientIP = req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown'
+    const userAgent = req.headers['user-agent'] || 'unknown'
 
+    // Validate appointmentId format to prevent injection
+    if (!appointmentId || typeof appointmentId !== 'string' || appointmentId.length > 50) {
+      return res.json({ success: false, message: "Invalid appointment reference" })
+    }
+//********************************************************************************************* */
     const appointmentData = await appointmentModel.findById(appointmentId)
 
     if (!appointmentData || appointmentData.cancelled) {
       return res.json({ success: false, message: "Appointment Cancelled or not Found" })
     }
 
+    // 1. Verify the appointment belongs to the authenticated user (prevent paying for others)
+    if (appointmentData.userId !== userId) {
+      await paymentLogModel.create({
+        userId,
+        appointmentId,
+        amount: appointmentData.amount,
+        status: 'flagged_fraud',
+        ipAddress: clientIP,
+        userAgent,
+        flagReason: 'User attempted payment for appointment belonging to another user'
+      })
+      return res.json({ success: false, message: "Unauthorized - this appointment does not belong to you" })
+    }
+
+    // 2. Prevent duplicate payment - block if already paid
+    if (appointmentData.payment) {
+      return res.json({ success: false, message: "This appointment has already been paid for" })
+    }
+
+    // 3. Rate limiting - block automated bots spamming payment requests
+    // Check for rapid payment attempts from same IP (more than 10 in 5 minutes)
+    const recentIPAttempts = await paymentLogModel.countDocuments({
+      ipAddress: clientIP,
+      timestamp: { $gte: new Date(Date.now() - 5 * 60 * 1000) }
+    })
+
+    if (recentIPAttempts > 10) {
+      await paymentLogModel.create({
+        userId,
+        appointmentId,
+        amount: appointmentData.amount,
+        status: 'flagged_fraud',
+        ipAddress: clientIP,
+        userAgent,
+        flagReason: 'Excessive payment attempts from same IP - potential automated bot'
+      })
+      return res.json({ success: false, message: "Too many payment attempts. Please try again later." })
+    }
+
+    // Check for rapid payment attempts from same user (more than 5 in 5 minutes)
+    const recentUserAttempts = await paymentLogModel.countDocuments({
+      userId,
+      timestamp: { $gte: new Date(Date.now() - 5 * 60 * 1000) }
+    })
+
+    if (recentUserAttempts > 5) {
+      await paymentLogModel.create({
+        userId,
+        appointmentId,
+        amount: appointmentData.amount,
+        status: 'flagged_fraud',
+        ipAddress: clientIP,
+        userAgent,
+        flagReason: 'Excessive payment attempts from same user account'
+      })
+      return res.json({ success: false, message: "Too many payment attempts. Please try again later." })
+    }
+
+    // 4. Validate amount is positive and within reasonable bounds
+    if (!appointmentData.amount || appointmentData.amount <= 0 || appointmentData.amount > 1000000) {
+      return res.json({ success: false, message: "Invalid payment amount" })
+    }
+
     // creating options for razorpay payment
     const options = {
       amount: appointmentData.amount * 100,
-      currency: process.env.CURRENCY,
+      currency: process.env.CURRENCY || 'INR',
       receipt: appointmentId,
     }
 
     // creation of an order
     const order = await getRazorpayInstance().orders.create(options)
 
+    // 5. Log payment initiation for audit trail
+    await paymentLogModel.create({
+      userId,
+      appointmentId,
+      razorpay_order_id: order.id,
+      amount: appointmentData.amount,
+      currency: process.env.CURRENCY || 'INR',
+      status: 'initiated',
+      ipAddress: clientIP,
+      userAgent
+    })
+
+    // 6. Return generic success response (no internal details leaked)
     res.json({ success: true, order })
 
   } catch (error) {
-    console.log(error);
-    res.json({ success: false, message: error.message });
+    console.error('Payment initiation error');
+    res.json({ success: false, message: "Payment initiation failed. Please try again." });
   }
 
 }
