@@ -98,7 +98,7 @@ const loginLawyer = async (req, res) => {
 const appointmentsLawyer = async (req, res) => {
   try {
     const { lawyerId } = req.body; // Getting from req.body as set by middleware
-    const appointments = await appointmentModel.find({ lawyerId });
+    const appointments = await appointmentModel.find({ lawyerId: String(lawyerId) });
 
     res.json({ success: true, appointments });
   } catch (error) {
@@ -152,7 +152,7 @@ const lawyerDashboard = async (req, res) => {
   try {
     const { lawyerId } = req.body; // Getting from req.body as set by middleware
 
-    const appointments = await appointmentModel.find({ lawyerId });
+    const appointments = await appointmentModel.find({ lawyerId: String(lawyerId) });
 
     let earnings = 0;
 
