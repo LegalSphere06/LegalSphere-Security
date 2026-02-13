@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import appointmentModel from "../models/appointmentModel.js";
 import fs from 'fs';
 import path from 'path';
+import validator from 'validator';
 
 const changeAvailability = async (req, res) => {
   try {
@@ -23,7 +24,7 @@ const changeAvailability = async (req, res) => {
 const lawyerList = async (req, res) => {
   try {
     const lawyers = await lawyerModel.find({}).select(["-password", "-email"]);
-    
+
     // Add full URL to image paths
     const lawyersWithFullImageUrls = lawyers.map(lawyer => {
       const lawyerObj = lawyer.toObject();
@@ -34,7 +35,7 @@ const lawyerList = async (req, res) => {
       }
       return lawyerObj;
     });
-    
+
     res.json({ success: true, lawyers: lawyersWithFullImageUrls });
   } catch (error) {
     console.log(error);
@@ -51,9 +52,18 @@ const loginLawyer = async (req, res) => {
       return res.json({ success: false, message: 'Email and password are required' });
     }
 
+    // Prevent NoSQL injection
+    if (typeof email !== 'string' || typeof password !== 'string') {
+      return res.json({ success: false, message: 'Invalid email or password format' });
+    }
+
+    if (!validator.isEmail(email)) {
+      return res.json({ success: false, message: "Please enter a valid email" })
+    }
+
     console.log('Login attempt for email:', email);
 
-    const lawyer = await lawyerModel.findOne({ email });
+    const lawyer = await lawyerModel.findOne({ email: String(email) });
 
     if (!lawyer) {
       console.log('No lawyer found with email:', email);
@@ -195,9 +205,9 @@ const lawyerProfile = async (req, res) => {
 const updateLawyerProfile = async (req, res) => {
   try {
     // Get lawyerId from body (set by middleware)
- 
+
     let lawyerId;
-    
+
     // Check if lawyerId exists in body (from middleware)
     if (req.body.lawyerId) {
       lawyerId = req.body.lawyerId;
@@ -207,7 +217,7 @@ const updateLawyerProfile = async (req, res) => {
       const token_decode = jwt.verify(dtoken, process.env.JWT_SECRET);
       lawyerId = token_decode.id;
     }
-    
+
     console.log('Updating profile for lawyer:', lawyerId);
     console.log('Received body:', req.body);
     console.log('Received file:', req.file);
@@ -232,7 +242,7 @@ const updateLawyerProfile = async (req, res) => {
     if (req.body.method) updateData.method = req.body.method;
     if (req.body.online_link) updateData.online_link = req.body.online_link;
     if (req.body.about) updateData.about = req.body.about;
-    
+
     // Handle numeric fields
     if (req.body.fees !== undefined && req.body.fees !== '') {
       updateData.fees = Number(req.body.fees);
@@ -243,7 +253,7 @@ const updateLawyerProfile = async (req, res) => {
     if (req.body.longitude !== undefined && req.body.longitude !== '') {
       updateData.longitude = Number(req.body.longitude);
     }
-    
+
     // Handle boolean field
     if (req.body.available !== undefined) {
       updateData.available = req.body.available === 'true' || req.body.available === true;
@@ -253,11 +263,11 @@ const updateLawyerProfile = async (req, res) => {
     if (req.body.degree) {
       updateData.degree = req.body.degree.split(',').map(item => item.trim()).filter(item => item);
     }
-    
+
     if (req.body.legal_professionals) {
       updateData.legal_professionals = req.body.legal_professionals.split(',').map(item => item.trim()).filter(item => item);
     }
-    
+
     if (req.body.languages_spoken) {
       updateData.languages_spoken = req.body.languages_spoken.split(',').map(item => item.trim()).filter(item => item);
     }
@@ -290,7 +300,7 @@ const updateLawyerProfile = async (req, res) => {
             // If image path starts with uploads/, construct full path
             oldImagePath = path.join(process.cwd(), lawyer.image);
           }
-          
+
           if (oldImagePath && fs.existsSync(oldImagePath)) {
             fs.unlinkSync(oldImagePath);
             console.log('Old image deleted:', oldImagePath);
@@ -299,7 +309,7 @@ const updateLawyerProfile = async (req, res) => {
       } catch (err) {
         console.log('Error deleting old image:', err);
       }
-      
+
       // Set new image path - store with /uploads/ prefix for serving via Express static
       updateData.image = `/uploads/${req.file.filename}`;
       console.log('New image uploaded:', updateData.image);
@@ -325,10 +335,10 @@ const updateLawyerProfile = async (req, res) => {
       updatedLawyerObj.image = `${backendUrl}${updatedLawyerObj.image}`;
     }
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: 'Profile Updated Successfully',
-      profileData: updatedLawyerObj 
+      profileData: updatedLawyerObj
     });
 
   } catch (error) {
@@ -382,20 +392,20 @@ const sendEmailToAdmin = async (req, res) => {
 
     // Get lawyer details to include in email
     const lawyer = await lawyerModel.findById(lawyerId).select('name email');
-    
+
     if (!lawyer) {
       return res.json({ success: false, message: "Lawyer not found" });
     }
 
     // Import the email sending function
     const { sendEmailFromLawyer } = await import('../config/simpleEmail.js');
-    
+
     const adminEmail = process.env.ADMIN_EMAIL;
     const emailSent = await sendEmailFromLawyer(
-      adminEmail, 
-      subject, 
-      message, 
-      lawyer.name, 
+      adminEmail,
+      subject,
+      message,
+      lawyer.name,
       lawyer.email
     );
 
@@ -437,10 +447,10 @@ const updateOnlineLink = async (req, res) => {
       return res.json({ success: false, message: "Lawyer not found" });
     }
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: "Online meeting link updated successfully",
-      profileData: updatedLawyer 
+      profileData: updatedLawyer
     });
 
   } catch (error) {
