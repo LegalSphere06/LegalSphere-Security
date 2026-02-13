@@ -8,6 +8,7 @@ const RegisterLawyer = () => {
     // Password validation configuration
     const PASSWORD_MIN_LENGTH = 8;
     const PASSWORD_VALIDATION_MESSAGE = `Password must be at least ${PASSWORD_MIN_LENGTH} characters`;
+    const PASSWORD_MISMATCH_MESSAGE = 'Passwords do not match';
 
     // OTP state variables
     const [otpSent, setOtpSent] = useState(false);
@@ -139,7 +140,7 @@ const RegisterLawyer = () => {
             errors.password = PASSWORD_VALIDATION_MESSAGE;
         }
         if (passwordConfirm && formData.application_password !== passwordConfirm) {
-            errors.passwordConfirm = 'Passwords do not match';
+            errors.passwordConfirm = PASSWORD_MISMATCH_MESSAGE;
         }
         if (formData.application_phone && !/^(?:\+94|0)?7\d{8}$/.test(formData.application_phone.replaceAll(/\s/g, ''))) {
             errors.phone = 'Invalid Sri Lankan mobile number';
@@ -269,7 +270,7 @@ const RegisterLawyer = () => {
 
         for (const field of requiredFields) {
             if (!formData[field] || formData[field] === '') {
-                toast.error(`Please fill in ${field.replace('application_', '').replaceAll(/_/g, ' ')}`);
+                toast.error(`Please fill in ${field.replace('application_', '').replaceAll('_', ' ')}`);
                 return false;
             }
         }
@@ -280,7 +281,7 @@ const RegisterLawyer = () => {
         }
 
         if (formData.application_password !== passwordConfirm) {
-            toast.error('Passwords do not match');
+            toast.error(PASSWORD_MISMATCH_MESSAGE);
             return false;
         }
 
