@@ -41,7 +41,13 @@ const Login = () => {
             }
 
         } catch (error) {
-
+            if (error.response?.data?.message) {
+                toast.error(error.response.data.message)
+            } else if (error.response?.status === 429) {
+                toast.error("Too many login attempts. Please try again later.")
+            } else {
+                toast.error(error.message || "An error occurred during login")
+            }
         }
     }
 
