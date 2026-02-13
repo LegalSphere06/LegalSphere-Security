@@ -2,8 +2,8 @@ import lawyerModel from "../models/lawyerModel.js";
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import appointmentModel from "../models/appointmentModel.js";
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import validator from 'validator';
 
 const changeAvailability = async (req, res) => {
@@ -28,7 +28,7 @@ const lawyerList = async (req, res) => {
     // Add full URL to image paths
     const lawyersWithFullImageUrls = lawyers.map(lawyer => {
       const lawyerObj = lawyer.toObject();
-      if (lawyerObj.image && lawyerObj.image.startsWith('/uploads/')) {
+      if (lawyerObj.image?.startsWith('/uploads/')) {
         // Prepend the backend URL to the image path
         const backendUrl = `${req.protocol}://${req.get('host')}`;
         lawyerObj.image = `${backendUrl}${lawyerObj.image}`;
@@ -330,7 +330,7 @@ const updateLawyerProfile = async (req, res) => {
 
     // Convert to object and add full URL to image path
     const updatedLawyerObj = updatedLawyer.toObject();
-    if (updatedLawyerObj.image && updatedLawyerObj.image.startsWith('/uploads/')) {
+    if (updatedLawyerObj.image?.startsWith('/uploads/')) {
       const backendUrl = `${req.protocol}://${req.get('host')}`;
       updatedLawyerObj.image = `${backendUrl}${updatedLawyerObj.image}`;
     }
