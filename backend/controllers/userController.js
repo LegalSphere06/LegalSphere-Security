@@ -5,28 +5,14 @@ import jwt from "jsonwebtoken";
 import { v2 as cloudinary } from "cloudinary";
 import lawyerModel from "../models/lawyerModel.js";
 import appointmentModel from "../models/appointmentModel.js";
-import razorpay from 'razorpay'
+import razorpay from 'razorpay';
+import crypto from 'crypto';
 import { validatePassword } from "../utils/passwordValidator.js";
 import { initiateMFA } from "../utils/mfaService.js";
 
-//***************************************************************** */
-//imported the new model
-// import paymentLogModel from '../models/paymentLogModel.js'
-//****************************************************************** */
-
-
-//******************************************************************************************* */
-//No Razorpay signature verification
-
-import crypto from "node:crypto"
-//******************************************************************************************* */
-
-
 // API to register user
-
 const registerUser = async (req, res) => {
   try {
-    //Validating
     const { name, email, password } = req.body;
 
     if (!name || !password || !email) {
@@ -42,8 +28,6 @@ const registerUser = async (req, res) => {
       return res.json({ success: false, message: pwCheck.message });
     }
 
-    //Hashing User password using bcrypt
-
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -56,8 +40,6 @@ const registerUser = async (req, res) => {
     const newUser = new userModel(userData);
     const user = await newUser.save();
 
-
-//create a token
     const token = jwt.sign({ id: user._id, role: "user" }, process.env.JWT_SECRET, { expiresIn: "7d" });
     res.json({ success: true, token });
   } catch (error) {
@@ -67,7 +49,6 @@ const registerUser = async (req, res) => {
 };
 
 //API for user login
-
 const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -76,7 +57,6 @@ const loginUser = async (req, res) => {
       return res.json({ success: false, message: "Invalid credentials" });
     }
 
-    // Check account lockout
     if (user.accountLockedUntil && user.accountLockedUntil > new Date()) {
       const secondsLeft = Math.ceil((user.accountLockedUntil - Date.now()) / 1000);
       return res.json({
@@ -88,24 +68,21 @@ const loginUser = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
-      // Increment failed attempts, lock after 5 failures
       const attempts = (user.failedLoginAttempts || 0) + 1;
       const update = { failedLoginAttempts: attempts };
       if (attempts >= 3) {
-        update.accountLockedUntil = new Date(Date.now() + 30 * 1000); // 30 sec lock (increase for production)
+        update.accountLockedUntil = new Date(Date.now() + 30 * 1000);
         update.failedLoginAttempts = 0;
       }
       await userModel.findByIdAndUpdate(user._id, update);
       return res.json({ success: false, message: "Invalid credentials" });
     }
 
-    // Reset failed attempts on successful password
     await userModel.findByIdAndUpdate(user._id, {
       failedLoginAttempts: 0,
       accountLockedUntil: null,
     });
 
-    // MFA: send OTP email and return mfaToken
     if (user.mfaEnabled !== false) {
       const mfaToken = await initiateMFA(user._id.toString(), user.email, "user");
       return res.json({
@@ -116,7 +93,6 @@ const loginUser = async (req, res) => {
       });
     }
 
-    // Fallback if MFA disabled - issue token directly
     const token = jwt.sign({ id: user._id, role: "user" }, process.env.JWT_SECRET, { expiresIn: "7d" });
     res.json({ success: true, token });
   } catch (error) {
@@ -126,12 +102,10 @@ const loginUser = async (req, res) => {
 };
 
 //API to get user profile data
-
 const getProfile = async (req, res) => {
   try {
     const { userId } = req.body;
     const userData = await userModel.findById(userId).select("-password");
-
     res.json({ success: true, userData });
   } catch (error) {
     console.log(error);
@@ -140,7 +114,6 @@ const getProfile = async (req, res) => {
 };
 
 // API to update user profile
-
 const updateProfile = async (req, res) => {
   try {
     const { userId, name, phone, address, dob, gender } = req.body;
@@ -159,7 +132,6 @@ const updateProfile = async (req, res) => {
     });
 
     if (imageFile) {
-      // Upload image buffer to cloudinary (for memoryStorage)
       const b64 = Buffer.from(imageFile.buffer).toString("base64");
       const dataURI = `data:${imageFile.mimetype};base64,${b64}`;
       
@@ -167,7 +139,6 @@ const updateProfile = async (req, res) => {
         resource_type: "image",
       });
       const imageURL = imageUpload.secure_url;
-
       await userModel.findByIdAndUpdate(userId, { image: imageURL });
     }
 
@@ -176,42 +147,38 @@ const updateProfile = async (req, res) => {
     console.log(error);
     res.json({ success: false, message: error.message });
   }
-};//API to book appointment
+};
 
+//API to book appointment
 const bookAppointment = async (req, res) => {
   try {
-    const { userId, lawyerId, slotDate, slotTime, consultationType } = req.body  // ADD consultationType here
+    const { userId, lawyerId, slotDate, slotTime, consultationType } = req.body;
 
-    const lawyerData = await lawyerModel.findById(lawyerId).select('-password')
+    const lawyerData = await lawyerModel.findById(lawyerId).select('-password');
 
-    // Check if lawyer exists first
     if (!lawyerData) {
-      return res.json({ success: false, message: 'Lawyer not found' })
+      return res.json({ success: false, message: 'Lawyer not found' });
     }
 
-    // Then check availability
     if (!lawyerData.available) {
-      return res.json({ success: false, message: 'Lawyer not available' })
+      return res.json({ success: false, message: 'Lawyer not available' });
     }
     
-    let slots_booked = lawyerData.slots_booked
+    let slots_booked = lawyerData.slots_booked;
 
-    // Checking for slots availability
     if (slots_booked[slotDate]) {
       if (slots_booked[slotDate].includes(slotTime)) {
-        return res.json({ success: false, message: 'Slot not available' })
+        return res.json({ success: false, message: 'Slot not available' });
       } else {
-        slots_booked[slotDate].push(slotTime)
+        slots_booked[slotDate].push(slotTime);
       }
-
     } else {
-      slots_booked[slotDate] = []
-      slots_booked[slotDate].push(slotTime)
+      slots_booked[slotDate] = [];
+      slots_booked[slotDate].push(slotTime);
     }
 
-    const userData = await userModel.findById(userId).select('-password')
-
-    delete lawyerData.slots_booked
+    const userData = await userModel.findById(userId).select('-password');
+    delete lawyerData.slots_booked;
 
     const appointmentData = {
       userId,
@@ -221,259 +188,141 @@ const bookAppointment = async (req, res) => {
       amount: lawyerData.fees,
       slotTime,
       slotDate,
-      consultationType,  // ADD this line
+      consultationType,
       date: Date.now()
-    }
+    };
 
-    const newAppointment = new appointmentModel(appointmentData)
-    await newAppointment.save()
+    const newAppointment = new appointmentModel(appointmentData);
+    await newAppointment.save();
 
-    //Save new slots data in lawyerData
-
-    await lawyerModel.findByIdAndUpdate(lawyerId, { slots_booked })
-
-    res.json({ success: true, message: 'Appointment Booked' })
+    await lawyerModel.findByIdAndUpdate(lawyerId, { slots_booked });
+    res.json({ success: true, message: 'Appointment Booked' });
 
   } catch (error) {
     console.log(error);
     res.json({ success: false, message: error.message });
   }
-}
+};
 
-//API to get user appointments for frontend  my_appointments page
-
+//API to get user appointments
 const listAppointment = async (req, res) => {
   try {
+    const { userId } = req.body;
 
-    const { userId } = req.body
-    const appointments = await appointmentModel.find({ userId })
+    // ✅ R8 Fix - Type check added
+    if (typeof userId !== 'string') {
+      return res.json({ success: false, message: 'Invalid input format' });
+    }
 
-    res.json({ success: true, appointments })
+    const appointments = await appointmentModel.find({ userId });
+    res.json({ success: true, appointments });
 
   } catch (error) {
     console.log(error);
     res.json({ success: false, message: error.message });
   }
-}
+};
 
 //API to cancel appointment
-
 const cancelAppointment = async (req, res) => {
   try {
+    const { userId, appointmentId } = req.body;
 
-    const { userId, appointmentId } = req.body
+    const appointmentData = await appointmentModel.findById(appointmentId);
 
-    const appointmentData = await appointmentModel.findById(appointmentId)
-
-    //Verify appointment user
     if (appointmentData.userId !== userId) {
-      return res.json({ success: false, message: "Unauthorized action" })
-
+      return res.json({ success: false, message: "Unauthorized action" });
     }
-    await appointmentModel.findByIdAndUpdate(appointmentId, { cancelled: true })
 
-    //Releasing Lawyers slot
+    await appointmentModel.findByIdAndUpdate(appointmentId, { cancelled: true });
 
-    const { lawyerId, slotDate, slotTime } = appointmentData
+    const { lawyerId, slotDate, slotTime } = appointmentData;
+    const lawyerData = await lawyerModel.findById(lawyerId);
+    let slots_booked = lawyerData.slots_booked;
+    slots_booked[slotDate] = slots_booked[slotDate].filter(e => e !== slotTime);
+    await lawyerModel.findByIdAndUpdate(lawyerId, { slots_booked });
 
-    const lawyerData = await lawyerModel.findById(lawyerId)
-
-    let slots_booked = lawyerData.slots_booked
-
-    slots_booked[slotDate] = slots_booked[slotDate].filter(e => e !== slotTime)
-
-    await lawyerModel.findByIdAndUpdate(lawyerId, { slots_booked })
-
-    res.json({ success: true, message: 'Appointment Cancelled' })
-
+    res.json({ success: true, message: 'Appointment Cancelled' });
 
   } catch (error) {
     console.log(error);
     res.json({ success: false, message: error.message });
   }
-}
+};
 
-// Lazy initialization - only create Razorpay instance when keys are available
-let razorpayInstance = null;
-const getRazorpayInstance = () => {
-  if (!razorpayInstance) {
-    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-      throw new Error('Razorpay keys are not configured');
-    }
-    razorpayInstance = new razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID,
-      key_secret: process.env.RAZORPAY_KEY_SECRET
-    })
-  }
-  return razorpayInstance;
-}
+const razorpayInstance = new razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET
+});
 
 //API to make payment of appointment using razorpay
-
 const paymentRazorpay = async (req, res) => {
-
- //********************************************************************* */
   try {
-    const { userId, appointmentId } = req.body
-    const clientIP = req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown'
-    const userAgent = req.headers['user-agent'] || 'unknown'
+    const { appointmentId } = req.body;
 
-    // Validate appointmentId format to prevent injection
-    if (!appointmentId || typeof appointmentId !== 'string' || appointmentId.length > 50) {
-      return res.json({ success: false, message: "Invalid appointment reference" })
-    }
-//********************************************************************************************* */
-    const appointmentData = await appointmentModel.findById(appointmentId)
+    const appointmentData = await appointmentModel.findById(appointmentId);
 
     if (!appointmentData || appointmentData.cancelled) {
-      return res.json({ success: false, message: "Appointment Cancelled or not Found" })
+      return res.json({ success: false, message: "Appointment Cancelled or not Found" });
     }
 
-    // 1. Verify the appointment belongs to the authenticated user (prevent paying for others)
-    if (appointmentData.userId !== userId) {
-      await paymentLogModel.create({
-        userId,
-        appointmentId,
-        amount: appointmentData.amount,
-        status: 'flagged_fraud',
-        ipAddress: clientIP,
-        userAgent,
-        flagReason: 'User attempted payment for appointment belonging to another user'
-      })
-      return res.json({ success: false, message: "Unauthorized - this appointment does not belong to you" })
+    // ✅ R9 Fix - Server-side amount validation
+    if (!appointmentData.amount || appointmentData.amount <= 0) {
+      return res.json({ success: false, message: "Invalid payment amount" });
     }
 
-    // 2. Prevent duplicate payment - block if already paid
-    if (appointmentData.payment) {
-      return res.json({ success: false, message: "This appointment has already been paid for" })
-    }
-
-    // 3. Rate limiting - block automated bots spamming payment requests
-    // Check for rapid payment attempts from same IP (more than 10 in 5 minutes)
-    const recentIPAttempts = await paymentLogModel.countDocuments({
-      ipAddress: clientIP,
-      timestamp: { $gte: new Date(Date.now() - 5 * 60 * 1000) }
-    })
-
-    if (recentIPAttempts > 10) {
-      await paymentLogModel.create({
-        userId,
-        appointmentId,
-        amount: appointmentData.amount,
-        status: 'flagged_fraud',
-        ipAddress: clientIP,
-        userAgent,
-        flagReason: 'Excessive payment attempts from same IP - potential automated bot'
-      })
-      return res.json({ success: false, message: "Too many payment attempts. Please try again later." })
-    }
-
-    // Check for rapid payment attempts from same user (more than 5 in 5 minutes)
-    const recentUserAttempts = await paymentLogModel.countDocuments({
-      userId,
-      timestamp: { $gte: new Date(Date.now() - 5 * 60 * 1000) }
-    })
-
-    if (recentUserAttempts > 5) {
-      await paymentLogModel.create({
-        userId,
-        appointmentId,
-        amount: appointmentData.amount,
-        status: 'flagged_fraud',
-        ipAddress: clientIP,
-        userAgent,
-        flagReason: 'Excessive payment attempts from same user account'
-      })
-      return res.json({ success: false, message: "Too many payment attempts. Please try again later." })
-    }
-
-    // 4. Validate amount is positive and within reasonable bounds
-    if (!appointmentData.amount || appointmentData.amount <= 0 || appointmentData.amount > 1000000) {
-      return res.json({ success: false, message: "Invalid payment amount" })
-    }
-
-    // creating options for razorpay payment
+    // ✅ R9 Fix - Generate unique server-side order
     const options = {
-      amount: appointmentData.amount * 100,
-      currency: process.env.CURRENCY || 'INR',
+      amount: Math.round(appointmentData.amount * 100), // amount from DB not from user
+      currency: process.env.CURRENCY,
       receipt: appointmentId,
-    }
+      payment_capture: 1 // auto capture
+    };
 
-    // creation of an order
-    const order = await getRazorpayInstance().orders.create(options)
+    const order = await razorpayInstance.orders.create(options);
+    res.json({ success: true, order });
 
-    // 5. Log payment initiation for audit trail
-    await paymentLogModel.create({
-      userId,
-      appointmentId,
-      razorpay_order_id: order.id,
-      amount: appointmentData.amount,
-      currency: process.env.CURRENCY || 'INR',
-      status: 'initiated',
-      ipAddress: clientIP,
-      userAgent
-    })
-
-    // 6. Return generic success response (no internal details leaked)
-    res.json({ success: true, order })
-
-  } catch (error) {
-    console.error('Payment initiation error');
-    res.json({ success: false, message: "Payment initiation failed. Please try again." });
-  }
-
-}
-
-//API to verify payment of razorpay
-
-const verifyRazorpay = async (req, res) => {
-  try {
-    const { userId, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body
-
-    // Validate required fields
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-      return res.json({ success: false, message: "Missing payment verification details" })
-    }
-
-    // Verify payment signature using HMAC SHA256
-    const generatedSignature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-      .digest('hex')
-
-    if (generatedSignature !== razorpay_signature) {
-      return res.json({ success: false, message: "Payment verification failed - invalid signature" })
-    }
-
-    // Signature verified, now confirm order status
-    const orderInfo = await getRazorpayInstance().orders.fetch(razorpay_order_id)
-
-    if (orderInfo.status === 'paid') {
-
-      //********************************************************************************* */
-      //Implement on no authentication check on payment verification.
-      // Verify the appointment belongs to the authenticated user
-      const appointmentData = await appointmentModel.findById(orderInfo.receipt)
-
-      if (!appointmentData) {
-        return res.json({ success: false, message: "Appointment not found" })
-      }
-
-      if (appointmentData.userId !== userId) {
-        return res.json({ success: false, message: "Unauthorized - appointment does not belong to this user" })
-      }
-      //********************************************************************************* */
-
-      await appointmentModel.findByIdAndUpdate(orderInfo.receipt, { payment: true })
-      res.json({ success: true, message: "Payment Successful" })
-    } else {
-      res.json({ success: false, message: "Payment Failed" })
-    }
   } catch (error) {
     console.log(error);
     res.json({ success: false, message: error.message });
   }
-}
+};
+
+//API to verify payment of razorpay
+const verifyRazorpay = async (req, res) => {
+  try {
+    const { 
+      razorpay_order_id, 
+      razorpay_payment_id, 
+      razorpay_signature 
+    } = req.body;
+
+    // ✅ R9/R10 Fix - Verify webhook signature
+    const body = razorpay_order_id + "|" + razorpay_payment_id;
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(body.toString())
+      .digest("hex");
+
+    if (expectedSignature !== razorpay_signature) {
+      return res.json({ success: false, message: "Payment verification failed" });
+    }
+
+    // ✅ R9 Fix - Fetch order from Razorpay to confirm status
+    const orderInfo = await razorpayInstance.orders.fetch(razorpay_order_id);
+
+    if (orderInfo.status === 'paid') {
+      await appointmentModel.findByIdAndUpdate(orderInfo.receipt, { payment: true });
+      res.json({ success: true, message: "Payment Successful" });
+    } else {
+      res.json({ success: false, message: "Payment Failed" });
+    }
+
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: error.message });
+  }
+};
 
 // API to get all users with location data for GIS dashboard
 const getUsersForGIS = async (req, res) => {
@@ -513,4 +362,16 @@ const toggleMFA = async (req, res) => {
   }
 };
 
-export { registerUser, loginUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment, paymentRazorpay, verifyRazorpay, getUsersForGIS, toggleMFA };
+export { 
+  registerUser, 
+  loginUser, 
+  getProfile, 
+  updateProfile, 
+  bookAppointment, 
+  listAppointment, 
+  cancelAppointment, 
+  paymentRazorpay, 
+  verifyRazorpay, 
+  getUsersForGIS, 
+  toggleMFA 
+};
