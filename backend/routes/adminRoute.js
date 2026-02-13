@@ -14,9 +14,11 @@ import {
 } from "../controllers/adminController.js";
 
 import upload from "../middlewares/multer.js";
-import authAdmin from "../middlewares/authAdmin.js";
+import auth from "../middlewares/auth.js";
 import { changeAvailability } from "../controllers/lawyerController.js";
+import { authLimiter } from "../middlewares/rateLimiter.js";
 import { sendEmailToLawyers } from "../controllers/adminController.js";
+import { verifyMFA } from "../controllers/mfaController.js";
 
 const adminRouter = express.Router();
 
@@ -27,28 +29,29 @@ adminRouter.post(
     console.log("POST /add-lawyer route matched!");
     next();
   },
-  authAdmin,
+  auth("admin"),
   upload.single("image"),
   addLawyer
 );
 
-adminRouter.post("/login", loginAdmin);
-adminRouter.post("/all-lawyers", authAdmin, allLawyers);
-adminRouter.post("/change-availability", authAdmin, changeAvailability);
-adminRouter.get('/appointments', authAdmin, appointmentsAdmin);
-adminRouter.post('/cancel-appointment', authAdmin, appointmentCancel);
-adminRouter.get('/dashboard', authAdmin, adminDashboard);
+adminRouter.post("/login", authLimiter, loginAdmin);
+adminRouter.post("/verify-mfa", authLimiter, verifyMFA);
+adminRouter.post("/all-lawyers", auth("admin"), allLawyers);
+adminRouter.post("/change-availability", auth("admin"), changeAvailability);
+adminRouter.get('/appointments', auth("admin"), appointmentsAdmin);
+adminRouter.post('/cancel-appointment', auth("admin"), appointmentCancel);
+adminRouter.get('/dashboard', auth("admin"), adminDashboard);
 
 //Email sending from the dashboard (like a regular mail)
-adminRouter.post("/send-email-to-lawyers", authAdmin, sendEmailToLawyers);
+adminRouter.post("/send-email-to-lawyers", auth("admin"), sendEmailToLawyers);
 
 // TWO ROUTES FOR APPLICATION APPROVAL/REJECTION
-adminRouter.post("/approve-application", authAdmin, approveApplication);
-adminRouter.post("/reject-application", authAdmin, rejectApplication);
+adminRouter.post("/approve-application", auth("admin"), approveApplication);
+adminRouter.post("/reject-application", auth("admin"), rejectApplication);
 
 
-adminRouter.get("/lawyer/:lawyerId", authAdmin, getLawyer);
-adminRouter.put("/lawyer/:lawyerId", authAdmin, upload.single("image"), updateLawyer);
-adminRouter.delete("/lawyer/:lawyerId", authAdmin, deleteLawyer);
+adminRouter.get("/lawyer/:lawyerId", auth("admin"), getLawyer);
+adminRouter.put("/lawyer/:lawyerId", auth("admin"), upload.single("image"), updateLawyer);
+adminRouter.delete("/lawyer/:lawyerId", auth("admin"), deleteLawyer);
 
 export default adminRouter;
