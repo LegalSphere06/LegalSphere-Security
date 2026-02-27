@@ -66,7 +66,7 @@ const addLawyer = async (req, res) => {
       return res.json({ success: false, message: "Missing Required Details" });
     }
 
-    // validating email format
+    // validating email formatting
     if (!validator.isEmail(email)) {
       return res.json({
         success: false,
